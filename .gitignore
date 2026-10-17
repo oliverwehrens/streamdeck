@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Xcode (if the package is opened in Xcode)
+xcuserdata/
+DerivedData/
+*.xcuserstate
+
+# App bundle output of scripts/bundle.sh
+build/
+*.app
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Personal Claude Code settings (shared commands and skills stay tracked)
+.claude/settings.local.json
