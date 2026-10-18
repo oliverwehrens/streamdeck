@@ -30,3 +30,22 @@ schema: spec-driven
 #     archive:
 #       guidance:
 #         - Summarize the archive outcome before finishing
+
+context: |
+  Work is tracked in GitHub Issues for this repo. Use the `gh` CLI for all issue access.
+
+rules:
+  proposal:
+    - 'If the change comes from a GitHub issue, read it first with `gh issue view <n> --comments`'
+    - 'Put "Issue: #<n>" as the first line of proposal.md'
+    - 'Name the change after the issue, e.g. `42-add-brightness-control`'
+  tasks:
+    - Do not duplicate tasks that already exist as checklist items in the issue; reference them
+
+operations:
+  apply:
+    guidance:
+      - When starting work, comment on the linked issue with `gh issue comment <n>` and the change name
+  archive:
+    guidance:
+      - After archiving, close the linked issue with `gh issue close <n> --comment "Archived as <change-name>"`
