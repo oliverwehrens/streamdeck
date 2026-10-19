@@ -43,6 +43,11 @@ public enum KeyRenderer {
         return RenderedKey(jpeg: encodeJPEG(flipped(image)), problems: problems)
     }
 
+    /// The key as the user sees it on the device, for on-screen previews.
+    public static func preview(_ appearance: KeyAppearance) -> CGImage {
+        renderUpright(appearance).0
+    }
+
     /// The key image as the user sees it, before the device flip.
     static func renderUpright(_ appearance: KeyAppearance) -> (CGImage, [String]) {
         let context = makeContext()

@@ -29,6 +29,15 @@ public final class DeckEngine {
     public private(set) var status = Status()
     public var onStatusChange: ((Status) -> Void)?
 
+    /// While set, the device shows this page instead of the one navigation selects.
+    /// Navigation keeps tracking apps, so clearing it returns to the right page.
+    public var editorPage: String? {
+        didSet { if editorPage != oldValue { pageMayHaveChanged() } }
+    }
+
+    /// While set, a key-down calls this instead of running the key's action.
+    public var onEditorKeyPress: ((Int) -> Void)?
+
     private let transport: DeckTransport
     private let performer: ActionPerformer
     private let commands: CommandRunner
@@ -83,10 +92,17 @@ public final class DeckEngine {
     // MARK: - Inputs
 
     public func configLoaded(_ newConfig: DeckConfig) {
+        let unchanged = newConfig == config
         config = newConfig
         brightnessOverride = nil
         problems[.config] = nil
         problems = problems.filter { if case .action = $0.key { false } else { true } }
+        // An identical config (e.g. an editor preview) must not restart dynamic keys.
+        if unchanged {
+            applyBrightness()
+            notify()
+            return
+        }
         if navigation == nil {
             navigation = Navigation(config: newConfig, frontmostApp: frontmostApp, ownBundleID: ownBundleID)
             navigation?.handle(.setAutoSwitch(autoSwitch))
@@ -163,7 +179,11 @@ public final class DeckEngine {
     }
 
     private func handleKey(_ event: KeyEvent) {
-        guard let page = navigation?.currentPage, let action = currentPageKeys[event.key]?.action else { return }
+        if let onEditorKeyPress {
+            if event.edge == .down { onEditorKeyPress(event.key) }
+            return
+        }
+        guard let page = displayedPage, let action = currentPageKeys[event.key]?.action else { return }
         switch event.edge {
         case .down:
             pressed.insert(event.key)
@@ -206,15 +226,21 @@ public final class DeckEngine {
 
     // MARK: - Pages and rendering
 
+    /// The editor's page while it is set and exists, otherwise navigation's page.
+    private var displayedPage: String? {
+        if let editorPage, config?.pages[editorPage] != nil { return editorPage }
+        return navigation?.currentPage
+    }
+
     private var currentPageKeys: [Int: KeyDefinition] {
-        guard let page = navigation?.currentPage else { return [:] }
+        guard let page = displayedPage else { return [:] }
         return config?.pages[page]?.keys ?? [:]
     }
 
     private var shownPage: String?
 
     private func pageMayHaveChanged(force: Bool = false) {
-        let page = navigation?.currentPage
+        let page = displayedPage
         if page != shownPage || force {
             shownPage = page
             restartDynamicTasks()
@@ -300,7 +326,7 @@ public final class DeckEngine {
         let newStatus = Status(
             connected: connected,
             device: device,
-            page: navigation?.currentPage,
+            page: displayedPage,
             autoSwitch: autoSwitch,
             problems: problems.sorted { $0.key < $1.key }.map { Problem(source: $0.key, message: $0.value) }
         )

@@ -8,14 +8,16 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     private let engine: DeckEngine
     private let configURL: URL
     private let reload: () -> Void
+    private let editConfig: () -> Void
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private let menu = NSMenu()
     private var status = DeckEngine.Status()
 
-    init(engine: DeckEngine, configURL: URL, reload: @escaping () -> Void) {
+    init(engine: DeckEngine, configURL: URL, reload: @escaping () -> Void, editConfig: @escaping () -> Void) {
         self.engine = engine
         self.configURL = configURL
         self.reload = reload
+        self.editConfig = editConfig
         super.init()
         menu.delegate = self
         menu.autoenablesItems = false
@@ -67,6 +69,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         }
 
         menu.addItem(.separator())
+        menu.addItem(item("Edit Config…", #selector(editConfigSelected), key: ","))
         menu.addItem(item("Open Config", #selector(openConfig)))
         menu.addItem(item("Reveal Config in Finder", #selector(revealConfig)))
         menu.addItem(item("Reload Config", #selector(reloadConfig), key: "r"))
@@ -134,12 +137,20 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         }
     }
 
+    @objc private func editConfigSelected() {
+        editConfig()
+    }
+
     @objc private func openConfig() {
+        Self.openInTextEditor(configURL)
+    }
+
+    static func openInTextEditor(_ url: URL) {
         // YAML often has no default app; fall back to TextEdit.
-        if NSWorkspace.shared.urlForApplication(toOpen: configURL) != nil {
-            NSWorkspace.shared.open(configURL)
+        if NSWorkspace.shared.urlForApplication(toOpen: url) != nil {
+            NSWorkspace.shared.open(url)
         } else if let textEdit = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.TextEdit") {
-            NSWorkspace.shared.open([configURL], withApplicationAt: textEdit, configuration: NSWorkspace.OpenConfiguration())
+            NSWorkspace.shared.open([url], withApplicationAt: textEdit, configuration: NSWorkspace.OpenConfiguration())
         }
     }
 

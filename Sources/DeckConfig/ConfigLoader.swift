@@ -75,6 +75,9 @@ private struct Reference {
     let page: String
     let line: Int?
     let context: String
+    /// Where the reference sits, when it is on a key.
+    var sourcePage: String?
+    var sourceKey: Int?
 }
 
 private struct Parser {
@@ -133,7 +136,8 @@ private struct Parser {
 
     mutating func checkReferences(_ config: DeckConfig) {
         for reference in references where config.pages[reference.page] == nil {
-            errors.append(ConfigError("\(reference.context) refers to unknown page '\(reference.page)'", line: reference.line))
+            errors.append(ConfigError("\(reference.context) refers to unknown page '\(reference.page)'",
+                                      line: reference.line, page: reference.sourcePage, key: reference.sourceKey))
         }
     }
 
@@ -227,7 +231,7 @@ private struct Parser {
             return .media(media)
         default:
             if value == "back" { return .page(.back) }
-            references.append(Reference(page: value, line: valueNode.line, context: "page '\(page)', key \(index): page action"))
+            references.append(Reference(page: value, line: valueNode.line, context: "page action", sourcePage: page, sourceKey: index))
             return .page(.named(value))
         }
     }

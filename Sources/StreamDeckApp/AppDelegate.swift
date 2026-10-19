@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var engine: DeckEngine!
     private var watcher: ConfigWatcher!
     private var menu: StatusMenuController!
+    private var editor: EditorWindowController!
     private var observers: [NSObjectProtocol] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -22,7 +23,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ownBundleID: Self.bundleID,
             frontmostApp: NSWorkspace.shared.frontmostApplication?.bundleIdentifier
         )
-        menu = StatusMenuController(engine: engine, configURL: configURL, reload: { [weak self] in self?.watcher.reload() })
+        editor = EditorWindowController(model: EditorModel(configURL: configURL), engine: engine) {
+            StatusMenuController.openInTextEditor(configURL)
+        }
+        editor.model.onPreview = { [weak self] config in self?.engine.configLoaded(config) }
+        editor.onClose = { [weak self] in
+            // Back to the file's config, dropping any discarded draft from the device.
+            if let config = self?.watcher.config { self?.engine.configLoaded(config) }
+        }
+        menu = StatusMenuController(engine: engine, configURL: configURL,
+                                    reload: { [weak self] in self?.watcher.reload() },
+                                    editConfig: { [weak self] in self?.editor.show() })
         engine.onStatusChange = { [weak self] status in self?.menu.update(status) }
 
         do {
@@ -34,19 +45,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // DispatchQueue.main keeps updates in order; Task hops would not guarantee it.
         watcher = ConfigWatcher(url: configURL) { [weak self] update in
             DispatchQueue.main.async {
-                MainActor.assumeIsolated {
-                    switch update {
-                    case let .loaded(config): self?.engine.configLoaded(config)
-                    case let .failed(errors): self?.engine.configFailed(errors)
-                    }
-                }
+                MainActor.assumeIsolated { self?.configUpdated(update) }
             }
         }
 
+        NSApp.mainMenu = Self.makeMainMenu()
         observeWorkspace()
         engine.start()
         watcher.start()
         menu.update(engine.status)
+    }
+
+    /// While the editor is open it decides what the device shows (see the config-editor spec).
+    private func configUpdated(_ update: ConfigWatcher.Update) {
+        switch update {
+        case let .loaded(config):
+            if editor.isOpen { editor.model.fileChanged() } else { engine.configLoaded(config) }
+        case let .failed(errors):
+            engine.configFailed(errors)
+            if editor.isOpen { editor.model.fileChanged() }
+        }
+    }
+
+    /// Only visible while the editor window is open; gives it Close, Quit and the Edit shortcuts.
+    private static func makeMainMenu() -> NSMenu {
+        let main = NSMenu()
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        appMenu.addItem(withTitle: "Quit StreamDeck", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        main.addItem(withTitle: "StreamDeck", action: nil, keyEquivalent: "").submenu = appMenu
+
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        edit.addItem(.separator())
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        main.addItem(withTitle: "Edit", action: nil, keyEquivalent: "").submenu = edit
+        return main
     }
 
     func applicationWillTerminate(_ notification: Notification) {

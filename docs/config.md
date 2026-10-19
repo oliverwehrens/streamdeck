@@ -2,6 +2,20 @@
 
 The app reads `~/.config/streamdeck/config.yaml`. If the file does not exist, the app creates a starter config on launch. Saved changes apply within a second. If a save has errors, the deck keeps the last valid config, and the menu-bar menu lists the errors with line numbers.
 
+You can edit the file by hand, as described below, or with the config editor.
+
+## Config editor
+
+**Edit Config…** in the menu-bar menu opens the editor. It edits everything in this file: keys, pages (add, rename, delete) and settings (brightness, default page, app pages).
+
+- **Live preview.** The deck shows your changes as you make them. `config.yaml` changes only when you click **Save** (Cmd-S). **Revert** returns to the saved file. Closing the window with unsaved changes asks whether to save or discard them.
+- **Icons.** For an SF Symbol, click **Choose…** to browse every symbol by category or search by name or keyword. Click one to use it.
+- **Errors** appear next to the key, page or setting they belong to. Save stays disabled until they are fixed, and the deck keeps showing the last valid state.
+- **Selecting keys from the deck.** While the editor window is in front, the deck shows the page you are editing. Pressing a key selects it in the editor instead of running its action. Switch to another app and the deck works normally again.
+- **Renaming a page** updates every key, app page and default page that points at it. A page that is still in use cannot be deleted. The editor lists where it is used.
+- **Comments are not kept.** The editor writes the file in a fixed format: one line per key, keys in order, no comments. The first save over a file you edited by hand asks first and copies the old file to `config.yaml.bak`.
+- **Editing the file while the editor is open.** Without unsaved changes, the editor reloads the file. With unsaved changes, it asks whether to reload or keep yours. While the editor has unsaved changes, the deck keeps showing them.
+
 ## Full example
 
 Every field appears in this example. A test loads it, so it stays valid.

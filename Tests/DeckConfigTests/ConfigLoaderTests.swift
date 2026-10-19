@@ -100,7 +100,9 @@ func errors(_ yaml: String) -> [ConfigError] {
     let found = errors("default_page: home\npages:\n  home:\n    keys:\n      0: { action: { page: media } }\n")
     #expect(found.count == 1)
     #expect(found.first?.message.contains("unknown page 'media'") == true)
-    #expect(found.first?.message.contains("key 0") == true)
+    #expect(found.first?.page == "home")
+    #expect(found.first?.key == 0)
+    #expect(found.first?.description.contains("page 'home', key 0: page action") == true)
 }
 
 @Test func unknownDefaultPage() {
