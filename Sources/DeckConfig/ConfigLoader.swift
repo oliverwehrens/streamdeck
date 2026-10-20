@@ -169,12 +169,7 @@ private struct Parser {
         var key = KeyDefinition()
 
         if let value = map["icon"], let text = string(value, what: "icon", page: page, key: index) {
-            if text.hasPrefix("sf:") {
-                key.icon = .symbol(String(text.dropFirst(3)))
-            } else {
-                let path = (text as NSString).expandingTildeInPath
-                key.icon = .file(path.hasPrefix("/") ? path : baseDirectory.appendingPathComponent(path).path)
-            }
+            key.icon = Icon(configValue: text, relativeTo: baseDirectory)
         }
         if let value = map["label"] {
             key.label = string(value, what: "label", page: page, key: index)

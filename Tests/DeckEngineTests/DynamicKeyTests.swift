@@ -20,7 +20,7 @@ private func dynamicConfig(every: TimeInterval = 1) -> DeckConfig {
 @MainActor
 private func engine(_ commands: FakeCommands, config: DeckConfig = dynamicConfig()) -> (DeckEngine, FakeTransport) {
     let transport = FakeTransport()
-    let engine = DeckEngine(transport: transport, performer: FakePerformer(), commands: commands, ownBundleID: "own", frontmostApp: nil)
+    let engine = DeckEngine(transport: transport, performer: FakePerformer(), commands: commands, configDirectory: testConfigDirectory, ownBundleID: "own", frontmostApp: nil)
     engine.configLoaded(config)
     engine.handle(.connected(DeviceInfo(serial: "", firmware: "")))
     return (engine, transport)
@@ -105,4 +105,71 @@ private func image(label: String, error: Bool = false) -> Data {
 @Test func realHangingCommandIsKilledAtTimeout() async {
     let result = await ShellRunner().run("sleep 60", timeout: 1)
     #expect(result.timedOut)
+}
+
+// MARK: - JSON output
+
+private let configuredIcon = Icon.symbol("bitcoinsign.circle")
+private let configuredBackground = HexColor(red: 0x10, green: 0x10, blue: 0x10)
+private let amber = HexColor(red: 0xc0, green: 0x80, blue: 0)
+
+private func styledConfig() -> DeckConfig {
+    DeckConfig(defaultPage: "home", pages: [
+        "home": Page(keys: [
+            0: KeyDefinition(icon: configuredIcon, label: "start", background: configuredBackground,
+                             dynamic: Dynamic(run: "status", every: 1)),
+        ]),
+    ])
+}
+
+private func image(_ appearance: KeyAppearance) -> Data {
+    KeyRenderer.render(appearance).jpeg
+}
+
+@MainActor @Test func jsonSetsIconLabelAndBackground() async {
+    let commands = FakeCommands { _, _ in
+        CommandResult(exitCode: 0, stdout: ##"{"label":"on","icon":"sf:lightbulb.fill","background":"#c08000"}"##)
+    }
+    let (engine, transport) = engine(commands, config: styledConfig())
+    let expected = image(KeyAppearance(background: amber, icon: .symbol("lightbulb.fill"), label: "on"))
+    await eventually { transport.images.last { $0.key == 0 }?.jpeg == expected }
+    #expect(transport.images.last { $0.key == 0 }?.jpeg == expected)
+    #expect(engine.status.problems.isEmpty)
+}
+
+@MainActor @Test func jsonOmittedFieldsFallBackToConfig() async {
+    let commands = FakeCommands { _, _ in CommandResult(exitCode: 0, stdout: #"{"label":"67250"}"#) }
+    let (engine, transport) = engine(commands, config: styledConfig())
+    let expected = image(KeyAppearance(background: configuredBackground, icon: configuredIcon, label: "67250"))
+    await eventually { transport.images.last { $0.key == 0 }?.jpeg == expected }
+    #expect(transport.images.last { $0.key == 0 }?.jpeg == expected)
+    withExtendedLifetime(engine) {}
+}
+
+@MainActor @Test func invalidJSONKeepsLastAppearance() async {
+    let commands = FakeCommands { _, call in
+        call == 1
+            ? CommandResult(exitCode: 0, stdout: ##"{"label":"on","background":"#c08000"}"##)
+            : CommandResult(exitCode: 0, stdout: #"{"label":"#)
+    }
+    let (engine, transport) = engine(commands, config: styledConfig())
+    let expected = image(KeyAppearance(background: amber, icon: configuredIcon, label: "on", error: true))
+    await eventually({ transport.images.last { $0.key == 0 }?.jpeg == expected }, timeout: .seconds(3))
+    #expect(transport.images.last { $0.key == 0 }?.jpeg == expected)
+    #expect(engine.status.problems.map(\.source) == [.dynamic(key: 0)])
+    #expect(engine.status.problems.first?.message.contains("not valid JSON") == true)
+}
+
+@MainActor @Test func plainTextAfterJSONResetsToConfig() async {
+    let commands = FakeCommands { _, call in
+        call == 1
+            ? CommandResult(exitCode: 0, stdout: ##"{"icon":"sf:lightbulb.fill","background":"#c08000"}"##)
+            : CommandResult(exitCode: 0, stdout: "plain")
+    }
+    let (engine, transport) = engine(commands, config: styledConfig())
+    let expected = image(KeyAppearance(background: configuredBackground, icon: configuredIcon, label: "plain"))
+    await eventually({ transport.images.last { $0.key == 0 }?.jpeg == expected }, timeout: .seconds(3))
+    #expect(transport.images.contains { $0.key == 0 && $0.jpeg == image(KeyAppearance(background: amber, icon: .symbol("lightbulb.fill"), label: "start")) })
+    #expect(transport.images.last { $0.key == 0 }?.jpeg == expected)
+    withExtendedLifetime(engine) {}
 }

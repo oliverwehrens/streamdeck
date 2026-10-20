@@ -48,6 +48,19 @@ public enum Icon: Equatable, Sendable {
     case file(String)
 }
 
+extension Icon {
+    /// Parses an icon as written in the config: `sf:<name>`, or an image path.
+    /// `~` expands to the home directory; relative paths resolve against `directory`.
+    public init(configValue text: String, relativeTo directory: URL) {
+        if text.hasPrefix("sf:") {
+            self = .symbol(String(text.dropFirst(3)))
+        } else {
+            let path = (text as NSString).expandingTildeInPath
+            self = .file(path.hasPrefix("/") ? path : directory.appendingPathComponent(path).path)
+        }
+    }
+}
+
 public struct HexColor: Equatable, Sendable {
     public var red: UInt8
     public var green: UInt8

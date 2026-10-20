@@ -27,7 +27,7 @@ private func twoPages() -> DeckConfig {
 private func connectedEngine(_ config: DeckConfig = twoPages(), performer: FakePerformer = FakePerformer(),
                              commands: FakeCommands = noCommands) async -> (DeckEngine, FakeTransport) {
     let transport = FakeTransport()
-    let engine = DeckEngine(transport: transport, performer: performer, commands: commands, ownBundleID: "own", frontmostApp: nil)
+    let engine = DeckEngine(transport: transport, performer: performer, commands: commands, configDirectory: testConfigDirectory, ownBundleID: "own", frontmostApp: nil)
     engine.start()
     engine.configLoaded(config)
     engine.handle(.connected(info))
@@ -118,7 +118,7 @@ private func connectedEngine(_ config: DeckConfig = twoPages(), performer: FakeP
 
 @MainActor @Test func nothingIsWrittenWhileDisconnected() async {
     let transport = FakeTransport()
-    let engine = DeckEngine(transport: transport, performer: FakePerformer(), commands: noCommands, ownBundleID: "own", frontmostApp: nil)
+    let engine = DeckEngine(transport: transport, performer: FakePerformer(), commands: noCommands, configDirectory: testConfigDirectory, ownBundleID: "own", frontmostApp: nil)
     engine.configLoaded(twoPages())
     #expect(transport.images.isEmpty)
     engine.handle(.connected(info))
@@ -168,7 +168,7 @@ private func connectedEngine(_ config: DeckConfig = twoPages(), performer: FakeP
 
 @MainActor @Test func deviceEventsArriveThroughTransportStream() async {
     let transport = FakeTransport()
-    let engine = DeckEngine(transport: transport, performer: FakePerformer(), commands: noCommands, ownBundleID: "own", frontmostApp: nil)
+    let engine = DeckEngine(transport: transport, performer: FakePerformer(), commands: noCommands, configDirectory: testConfigDirectory, ownBundleID: "own", frontmostApp: nil)
     engine.start()
     engine.configLoaded(twoPages())
     transport.continuation.yield(.connected(info))

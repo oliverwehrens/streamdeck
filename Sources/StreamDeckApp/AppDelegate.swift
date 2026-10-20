@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             transport: IOKitTransport(),
             performer: SystemActionPerformer(commands: commands),
             commands: commands,
+            configDirectory: configURL.deletingLastPathComponent(),
             ownBundleID: Self.bundleID,
             frontmostApp: NSWorkspace.shared.frontmostApplication?.bundleIdentifier
         )

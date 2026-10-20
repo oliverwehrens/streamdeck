@@ -4,6 +4,8 @@ import Foundation
 import os
 @testable import DeckEngine
 
+let testConfigDirectory = URL(fileURLWithPath: "/Users/test/.config/streamdeck")
+
 final class FakeTransport: DeckTransport, @unchecked Sendable {
     let events: AsyncStream<DeviceEvent>
     let continuation: AsyncStream<DeviceEvent>.Continuation

@@ -74,7 +74,7 @@ All fields are optional.
 | `label` | Text below the icon, or centered without an icon. Shrinks, wraps to two lines, then truncates. |
 | `background` | Hex color `#RRGGBB`. Default black. |
 | `action` | What a press does. Exactly one of the types below. |
-| `dynamic` | `run` (shell command) and `every` (duration). The first line of the command's output replaces `label`. |
+| `dynamic` | `run` (shell command) and `every` (duration). The command's output replaces `label`, or sets `label`, `icon` and `background` when it prints JSON. See [Dynamic keys](#dynamic-keys). |
 
 ## Actions
 
@@ -107,7 +107,40 @@ Letters map to US key positions.
 
 - The command runs only while its page is shown. A new run starts only after the previous one has finished.
 - `every` accepts `ms`, `s`, `m` and `h` units. The minimum is `1s`.
-- If the command fails or runs longer than 10 seconds, the key keeps its last label and shows a red dot until a later run succeeds.
+- If the command fails or runs longer than 10 seconds, the key keeps its last label, icon and background and shows a red dot until a later run succeeds. The menu shows the reason.
+
+### Output
+
+Plain text: the first line, trimmed, replaces `label`.
+
+JSON: output whose first non-blank character is `{` is read as a JSON object. It can set three fields:
+
+| Field | Value |
+|---|---|
+| `label` | Text. `""` hides the label. |
+| `icon` | Same as the `icon` key field: `sf:<name>` or an image path. Relative paths resolve against `~/.config/streamdeck/`. |
+| `background` | Hex color `#RRGGBB`. |
+
+- A field you leave out keeps the key's configured value.
+- Other fields are ignored.
+- Output that is not valid JSON, a field that is not a string, or a color that is not `#RRGGBB` counts as a failed run.
+
+Example: a Home Assistant light. `HA_TOKEN` must be exported in `~/.zprofile` or `~/.zshenv`, because commands run in a login shell that does not read `~/.zshrc`.
+
+```yaml
+4: { icon: sf:lightbulb, dynamic: { run: "~/.config/streamdeck/ha-light.sh kitchen", every: 10s } }
+```
+
+```sh
+#!/bin/sh
+# ~/.config/streamdeck/ha-light.sh <light name>
+state=$(curl -sf -H "Authorization: Bearer $HA_TOKEN" \
+  "http://homeassistant.local:8123/api/states/light.$1" | jq -r .state) || exit 1
+case $state in
+  on) echo '{"icon":"sf:lightbulb.fill","background":"#c08000","label":"on"}' ;;
+  *)  echo '{"icon":"sf:lightbulb","background":"#202020","label":"off"}' ;;
+esac
+```
 
 ## Pages
 

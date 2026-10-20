@@ -75,6 +75,24 @@ pages:
 
 See [docs/config.md](docs/config.md) for every field, action and option.
 
+### Dynamic keys
+
+A dynamic key runs a shell command on a schedule and shows its output. Plain text replaces the label. JSON can also set the icon and background:
+
+```yaml
+3: { icon: sf:bitcoinsign.circle, dynamic: { run: ~/.config/streamdeck/btc.sh, every: 1m } }
+```
+
+```sh
+#!/bin/sh
+# ~/.config/streamdeck/btc.sh: bitcoin price, red background below 60000
+price=$(curl -sf https://api.coinbase.com/v2/prices/BTC-USD/spot | jq -r '.data.amount | tonumber | floor') || exit 1
+if [ "$price" -lt 60000 ]; then color="#802020"; else color="#205020"; fi
+echo "{\"label\":\"$price\",\"background\":\"$color\"}"
+```
+
+Fields the script leaves out keep the key's configured value. A command that fails, times out or prints invalid JSON keeps the last appearance and shows a red dot. See [docs/config.md](docs/config.md#dynamic-keys) for the full format and a Home Assistant example.
+
 ## Troubleshooting
 
 | Symptom | Check |

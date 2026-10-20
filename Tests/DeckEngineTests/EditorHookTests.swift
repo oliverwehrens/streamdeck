@@ -16,7 +16,7 @@ private func pages() -> DeckConfig {
 @MainActor
 private func engine(performer: FakePerformer = FakePerformer(), commands: FakeCommands = noCommands) -> (DeckEngine, FakeTransport) {
     let transport = FakeTransport()
-    let engine = DeckEngine(transport: transport, performer: performer, commands: commands, ownBundleID: "own", frontmostApp: nil)
+    let engine = DeckEngine(transport: transport, performer: performer, commands: commands, configDirectory: testConfigDirectory, ownBundleID: "own", frontmostApp: nil)
     engine.configLoaded(pages())
     engine.handle(.connected(DeviceInfo(serial: "", firmware: "")))
     return (engine, transport)
@@ -86,7 +86,7 @@ private func image(_ label: String) -> Data {
         "home": Page(keys: [0: KeyDefinition(dynamic: Dynamic(run: "clock", every: 60))]),
     ])
     let transport = FakeTransport()
-    let engine = DeckEngine(transport: transport, performer: FakePerformer(), commands: commands, ownBundleID: "own", frontmostApp: nil)
+    let engine = DeckEngine(transport: transport, performer: FakePerformer(), commands: commands, configDirectory: testConfigDirectory, ownBundleID: "own", frontmostApp: nil)
     engine.configLoaded(config)
     await eventually { commands.state.calls["clock"] == 1 }
     engine.configLoaded(config)

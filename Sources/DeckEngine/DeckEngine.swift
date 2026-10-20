@@ -41,6 +41,8 @@ public final class DeckEngine {
     private let transport: DeckTransport
     private let performer: ActionPerformer
     private let commands: CommandRunner
+    /// Relative icon paths in dynamic output resolve against this.
+    private let configDirectory: URL
     private let ownBundleID: String
 
     private var config: DeckConfig?
@@ -55,15 +57,17 @@ public final class DeckEngine {
     /// Last JPEG sent per key; only changed keys are written.
     private var lastSent: [Int: Data] = [:]
     private var pressed: Set<Int> = []
-    private var dynamicLabels: [Int: String] = [:]
+    private var dynamicOutputs: [Int: DynamicOutput] = [:]
     private var dynamicFailed: Set<Int> = []
     private var dynamicTasks: [Int: Task<Void, Never>] = [:]
     private var problems: [Problem.Source: String] = [:]
 
-    public init(transport: DeckTransport, performer: ActionPerformer, commands: CommandRunner, ownBundleID: String, frontmostApp: String?) {
+    public init(transport: DeckTransport, performer: ActionPerformer, commands: CommandRunner, configDirectory: URL,
+                ownBundleID: String, frontmostApp: String?) {
         self.transport = transport
         self.performer = performer
         self.commands = commands
+        self.configDirectory = configDirectory
         self.ownBundleID = ownBundleID
         self.frontmostApp = frontmostApp
     }
@@ -258,10 +262,11 @@ public final class DeckEngine {
 
     private func render(key: Int, notifyAfter: Bool = true) {
         let definition = currentPageKeys[key]
+        let output = dynamicOutputs[key]
         var appearance = KeyAppearance(
-            background: definition?.background ?? .black,
-            icon: definition?.icon,
-            label: dynamicLabels[key] ?? definition?.label,
+            background: output?.background ?? definition?.background ?? .black,
+            icon: output?.icon ?? definition?.icon,
+            label: output?.label ?? definition?.label,
             pressed: pressed.contains(key) && definition?.action != nil,
             error: dynamicFailed.contains(key)
         )
@@ -289,7 +294,7 @@ public final class DeckEngine {
 
     private func restartDynamicTasks() {
         cancelDynamicTasks()
-        dynamicLabels.removeAll()
+        dynamicOutputs.removeAll()
         dynamicFailed.removeAll()
         problems = problems.filter { if case .dynamic = $0.key { false } else { true } }
         for (key, definition) in currentPageKeys {
@@ -307,15 +312,21 @@ public final class DeckEngine {
     }
 
     private func dynamicFinished(key: Int, command: String, result: CommandResult) {
-        if result.succeeded {
-            let firstLine = result.stdout.split(separator: "\n", omittingEmptySubsequences: false).first ?? ""
-            dynamicLabels[key] = firstLine.trimmingCharacters(in: .whitespaces)
-            dynamicFailed.remove(key)
-            problems[.dynamic(key: key)] = nil
-        } else {
+        // A failed run keeps the last good output, so the key keeps its whole appearance.
+        if !result.succeeded {
             dynamicFailed.insert(key)
             let reason = result.timedOut ? "timed out after \(Int(Self.dynamicTimeout)) s" : "exited with status \(result.exitCode)"
             problems[.dynamic(key: key)] = "Key \(key) dynamic command \(reason): \(command)"
+        } else {
+            switch DynamicOutput.parse(result.stdout, configDirectory: configDirectory) {
+            case let .success(output):
+                dynamicOutputs[key] = output
+                dynamicFailed.remove(key)
+                problems[.dynamic(key: key)] = nil
+            case let .failure(rejected):
+                dynamicFailed.insert(key)
+                problems[.dynamic(key: key)] = "Key \(key) dynamic output: \(rejected.reason): \(command)"
+            }
         }
         render(key: key)
     }

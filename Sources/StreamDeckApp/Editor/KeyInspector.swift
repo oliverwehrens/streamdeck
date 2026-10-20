@@ -25,7 +25,7 @@ struct KeyInspector: View {
             Section("Action") {
                 ActionEditor(action: key.action, pages: model.draft.pages.map(\.name), configDirectory: model.configDirectory)
             }
-            Section("Dynamic label") {
+            Section("Dynamic") {
                 DynamicEditor(dynamic: key.dynamic)
             }
             let errors = model.errors(page: page, key: index)
@@ -237,7 +237,7 @@ private struct DynamicEditor: View {
     @Binding var dynamic: DynamicDocument?
 
     var body: some View {
-        Toggle("Show command output as label", isOn: Binding(
+        Toggle("Update from command output", isOn: Binding(
             get: { dynamic != nil },
             set: { dynamic = $0 ? DynamicDocument(run: "", every: "30s") : nil }
         ))
@@ -246,6 +246,8 @@ private struct DynamicEditor: View {
                 .font(.body.monospaced())
             TextField("Every", text: Binding(get: { dynamic?.every ?? "" }, set: { dynamic?.every = $0 }), prompt: Text("30s"))
             Text("Units ms, s, m, h. Minimum 1s. Runs only while the page is shown.")
+                .font(.caption).foregroundStyle(.secondary)
+            Text(##"Print plain text for the label, or JSON such as {"label":"on","icon":"sf:lightbulb.fill","background":"#c08000"}."##)
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
