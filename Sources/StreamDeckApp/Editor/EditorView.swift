@@ -95,8 +95,8 @@ private struct PageSidebar: View {
             }
             Section {
                 Label("Settings", systemImage: "gearshape")
-                    .tag(SidebarItem.settings)
                     .badge(model.settingsErrors.count)
+                    .tag(SidebarItem.settings)
             }
         }
         .safeAreaInset(edge: .bottom) {
