@@ -53,7 +53,7 @@ func errors(_ yaml: String) -> [ConfigError] {
     #expect(keys[0] == KeyDefinition(icon: .symbol("play.fill"), label: "Play",
                                      background: HexColor(red: 0x1E, green: 0x90, blue: 0xFF), action: .media(.playpause)))
     #expect(keys[1]?.icon == .file("/Users/test/.config/streamdeck/icons/zoom.png"))
-    #expect(keys[1]?.action == .keys(KeyCombo(modifiers: [.cmd, .shift], keyCode: 0x2E)))
+    #expect(keys[1]?.action == .keys(KeyCombo(modifiers: [.cmd, .shift], key: .character("m"))))
     #expect(keys[2]?.icon == .file("/abs/x.png"))
     #expect(keys[2]?.action == .run("say hi"))
     #expect(keys[3]?.action == .open("https://example.com"))

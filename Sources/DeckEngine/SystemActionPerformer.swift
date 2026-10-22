@@ -6,10 +6,16 @@ import DeckConfig
 public struct SystemActionPerformer: ActionPerformer {
     let commands: CommandRunner
     let isTrusted: @Sendable () -> Bool
+    let layout: any KeyboardLayout
 
-    public init(commands: CommandRunner = ShellRunner(), isTrusted: @escaping @Sendable () -> Bool = { AXIsProcessTrusted() }) {
+    public init(
+        commands: CommandRunner = ShellRunner(),
+        isTrusted: @escaping @Sendable () -> Bool = { AXIsProcessTrusted() },
+        layout: any KeyboardLayout = SystemKeyboardLayout()
+    ) {
         self.commands = commands
         self.isTrusted = isTrusted
+        self.layout = layout
     }
 
     public func perform(_ action: Action) async -> ActionResult {
@@ -20,8 +26,15 @@ public struct SystemActionPerformer: ActionPerformer {
             return await open(target)
         case let .keys(combo):
             guard isTrusted() else { return .needsAccessibility }
-            Self.post(combo)
-            return .succeeded
+            return await MainActor.run {
+                switch Self.resolve(combo, layout: layout) {
+                case let .success(key):
+                    Self.post(key)
+                    return .succeeded
+                case let .failure(.noKey(character, layout)):
+                    return .failed("keys '\(combo.text)': keyboard layout '\(layout)' has no key for '\(character)'")
+                }
+            }
         case let .media(key):
             guard isTrusted() else { return .needsAccessibility }
             await MainActor.run { Self.post(key) }
@@ -74,12 +87,33 @@ public struct SystemActionPerformer: ActionPerformer {
         return flags
     }
 
-    static func post(_ combo: KeyCombo) {
+    struct ResolvedKey: Equatable {
+        var keyCode: UInt16
+        var flags: CGEventFlags
+    }
+
+    enum ResolutionError: Error, Equatable {
+        case noKey(Character, layout: String)
+    }
+
+    /// Characters go through the layout; named keys keep their code.
+    static func resolve(_ combo: KeyCombo, layout: some KeyboardLayout) -> Result<ResolvedKey, ResolutionError> {
+        let code: UInt16
+        switch combo.key {
+        case let .named(named):
+            code = named
+        case let .character(character):
+            guard let typed = layout.keyCode(typing: character) else { return .failure(.noKey(character, layout: layout.name)) }
+            code = typed
+        }
+        return .success(ResolvedKey(keyCode: code, flags: flags(for: combo.modifiers)))
+    }
+
+    static func post(_ key: ResolvedKey) {
         let source = CGEventSource(stateID: .hidSystemState)
-        let flags = flags(for: combo.modifiers)
         for down in [true, false] {
-            guard let event = CGEvent(keyboardEventSource: source, virtualKey: combo.keyCode, keyDown: down) else { continue }
-            event.flags = flags
+            guard let event = CGEvent(keyboardEventSource: source, virtualKey: key.keyCode, keyDown: down) else { continue }
+            event.flags = key.flags
             event.post(tap: .cghidEventTap)
         }
     }

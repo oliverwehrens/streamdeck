@@ -18,6 +18,45 @@ import Testing
     #expect(await performer.perform(.keys(combo)) == .needsAccessibility)
 }
 
+@Test func usLayoutMatchesFormerKeyCodes() {
+    for (character, code) in KeyCombo.usCharacterCodes {
+        #expect(TableKeyboardLayout.us.keyCode(typing: character) == code)
+        #expect(TableKeyboardLayout.us.character(forKeyCode: code) == character)
+    }
+}
+
+@Test func germanFakeLayout() {
+    #expect(germanLayout.keyCode(typing: "z") == 0x10)
+    #expect(germanLayout.keyCode(typing: "y") == 0x06)
+    #expect(germanLayout.keyCode(typing: "[") == nil)
+    #expect(germanLayout.character(forKeyCode: 0x29) == "ö")
+}
+
+@Test func charactersResolveThroughTheLayout() throws {
+    let undo = try KeyCombo.parse("cmd+z").get()
+    #expect(SystemActionPerformer.resolve(undo, layout: germanLayout) == .success(.init(keyCode: 0x10, flags: .maskCommand)))
+    #expect(SystemActionPerformer.resolve(undo, layout: TableKeyboardLayout.us) == .success(.init(keyCode: 0x06, flags: .maskCommand)))
+}
+
+@Test func namedKeysIgnoreTheLayout() throws {
+    let left = try KeyCombo.parse("cmd+left").get()
+    for layout in [germanLayout, TableKeyboardLayout.us] {
+        #expect(SystemActionPerformer.resolve(left, layout: layout) == .success(.init(keyCode: 0x7B, flags: .maskCommand)))
+    }
+}
+
+@Test func characterMissingFromLayoutIsNotSent() async throws {
+    let performer = SystemActionPerformer(commands: noCommands, isTrusted: { true }, layout: germanLayout)
+    let combo = try KeyCombo.parse("cmd+[").get()
+    #expect(await performer.perform(.keys(combo)) == .failed("keys 'cmd+[': keyboard layout 'German' has no key for '['"))
+}
+
+@Test func systemLayoutTypesLetters() async {
+    let layout = await MainActor.run { SystemKeyboardLayout.current() }
+    #expect(layout.keyCode(typing: "a") != nil)
+    #expect(layout.keyCode(typing: "z") != nil)
+}
+
 // MARK: 5.4 Media keys
 
 @Test func mediaWithoutPermissionIsNotSent() async {

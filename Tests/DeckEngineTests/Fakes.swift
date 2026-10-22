@@ -84,3 +84,19 @@ func eventually(_ condition: @MainActor () -> Bool, timeout: Duration = .seconds
         try? await Task.sleep(for: .milliseconds(10))
     }
 }
+
+/// German (QWERTZ) without modifiers: Y and Z swapped, no key types `[`, `]`, `;`, `'`, `\`, `/`, `=` or `` ` ``.
+let germanLayout: TableKeyboardLayout = {
+    var codes = TableKeyboardLayout.us.codes
+    for character in "[];'\\/=`-" { codes[character] = nil }
+    codes["z"] = 0x10
+    codes["y"] = 0x06
+    codes["-"] = 0x2C
+    codes["ß"] = 0x1B
+    codes["ü"] = 0x21
+    codes["ö"] = 0x29
+    codes["ä"] = 0x27
+    codes["+"] = 0x1E
+    codes["#"] = 0x2A
+    return TableKeyboardLayout(name: "German", codes: codes)
+}()

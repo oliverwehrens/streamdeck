@@ -20,6 +20,6 @@ let package = Package(
         .testTarget(name: "DeckConfigTests", dependencies: ["DeckConfig"]),
         .testTarget(name: "DeckRenderTests", dependencies: ["DeckRender"]),
         .testTarget(name: "DeckEngineTests", dependencies: ["DeckEngine"]),
-        .testTarget(name: "StreamDeckAppTests", dependencies: ["StreamDeckApp", "DeckConfig"]),
+        .testTarget(name: "StreamDeckAppTests", dependencies: ["StreamDeckApp", "DeckConfig", "DeckEngine"]),
     ]
 )

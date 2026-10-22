@@ -24,7 +24,7 @@ struct KeyInspector: View {
                 Text("Key \(index)").font(.headline)
             }
             Section("Action") {
-                ActionEditor(action: key.action, pages: model.draft.pages.map(\.name), configDirectory: model.configDirectory)
+                ActionEditor(action: key.action, pages: model.draft.pages.map(\.name), configDirectory: model.configDirectory, keyIndex: index)
             }
             Section("Dynamic") {
                 DynamicEditor(dynamic: key.dynamic)
@@ -188,6 +188,7 @@ private struct ActionEditor: View {
     @Binding var action: ActionDocument?
     let pages: [String]
     let configDirectory: URL
+    let keyIndex: Int
 
     private static let kindNames: [ActionDocument.Kind: String] = [
         .run: "Run command", .open: "Open", .keys: "Keystroke", .media: "Media key", .page: "Go to page",
@@ -236,9 +237,8 @@ private struct ActionEditor: View {
                 }
             }
         case .keys:
-            TextField("Keys", text: value, prompt: Text("cmd+shift+m"))
-                .font(.body.monospaced())
-            Text("Modifiers cmd, shift, alt, ctrl, fn plus one key. Needs Accessibility permission.")
+            KeystrokeField(value: value, keyIndex: keyIndex)
+            Text("Click and press a combination. Shortcuts macOS keeps for itself, such as Cmd-Space or Cmd-Tab, need Edit as Text: modifiers cmd, ctrl, alt, shift, fn plus one key. Needs Accessibility permission.")
                 .font(.caption).foregroundStyle(.secondary)
         case .media:
             Picker("Media key", selection: value) {

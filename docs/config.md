@@ -10,6 +10,7 @@ You can edit the file by hand, as described below, or with the config editor.
 
 - **Live preview.** The deck shows your changes as you make them. `config.yaml` changes only when you click **Save** (Cmd-S). **Revert** returns to the saved file. Closing the window with unsaved changes asks whether to save or discard them.
 - **Icons.** For an SF Symbol, click **Choose…** to browse every symbol by category or search by name or keyword. Click one to use it.
+- **Keystrokes.** Click the Keys field and press the combination. The field fills in the config text, for example `cmd+shift+m`, `f12` or `ctrl+alt+left`. Esc cancels; clicking elsewhere or switching keys stops recording. While recording, editor shortcuts such as Cmd-S are recorded instead of run. Letters follow your active keyboard layout. F-keys and arrows never record `fn`, because macOS adds it on its own; other keys record `fn` only when you hold it. A key without a config name, such as a keypad key or `ö`, shows a message instead. Shortcuts macOS keeps for itself, such as Cmd-Space or Cmd-Tab, never reach the editor: use **Edit as Text** and type them. The clear button empties the field.
 - **Errors** appear next to the key, page or setting they belong to. Save stays disabled until they are fixed, and the deck keeps showing the last valid state.
 - **Selecting keys from the deck.** While the editor window is in front, the deck shows the page you are editing. Pressing a key selects it in the editor instead of running its action. Switch to another app and the deck works normally again.
 - **Renaming a page** updates every key, app page and default page that points at it. A page that is still in use cannot be deleted. The editor lists where it is used.
@@ -106,7 +107,9 @@ Actions fire when the key goes down. Holding a key does not repeat the action.
 - `left`, `right`, `up`, `down`, `home`, `end`, `pageup`, `pagedown`
 - punctuation such as `-`, `=`, `[`, `]`, `;`, `'`, `,`, `.`, `/`, `` ` ``
 
-Letters map to US key positions.
+Letters, digits and punctuation mean the character on your active keyboard layout, so `cmd+z` is undo on QWERTZ as on QWERTY. With a non-Latin layout such as Russian active, the Latin layout macOS uses for shortcuts applies. Named keys (`return`, `esc`, `space`, `f1`-`f20`, arrows and the rest) are the same on every layout.
+
+A character your layout can't type without a modifier, such as `[` on a German layout, can't be sent. Pressing the key sends nothing and the menu shows `keyboard layout 'German' has no key for '['`.
 
 **Media keys**: `playpause`, `next`, `previous`, `volumeup`, `volumedown`, `mute`, `brightnessup`, `brightnessdown`.
 
