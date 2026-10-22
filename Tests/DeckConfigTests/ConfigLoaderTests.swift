@@ -165,3 +165,18 @@ func errors(_ yaml: String) -> [ConfigError] {
 @Test func errorDescriptionIncludesLocation() {
     #expect(ConfigError("bad", line: 4, page: "home", key: 2).description == "line 4, page 'home', key 2: bad")
 }
+
+// MARK: - Full-key image
+
+@Test func relativeImagePathResolvesAgainstConfigDirectory() throws {
+    let config = try load("default_page: home\npages: { home: { keys: { 0: { image: art/cat.jpg } } } }\n").get()
+    #expect(config.pages["home"]?.keys[0]?.image == "/Users/test/.config/streamdeck/art/cat.jpg")
+}
+
+@Test func symbolAsImageFails() {
+    let found = errors("default_page: home\npages: { home: { keys: { 3: { image: sf:star.fill } } } }\n")
+    #expect(found.count == 1)
+    #expect(found.first?.page == "home")
+    #expect(found.first?.key == 3)
+    #expect(found.first?.message.contains("SF Symbols belong in icon") == true)
+}

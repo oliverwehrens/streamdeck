@@ -28,13 +28,16 @@ public struct Page: Equatable, Sendable {
 
 public struct KeyDefinition: Equatable, Sendable {
     public var icon: Icon?
+    /// Absolute path of an image drawn across the whole key.
+    public var image: String?
     public var label: String?
     public var background: HexColor?
     public var action: Action?
     public var dynamic: Dynamic?
 
-    public init(icon: Icon? = nil, label: String? = nil, background: HexColor? = nil, action: Action? = nil, dynamic: Dynamic? = nil) {
+    public init(icon: Icon? = nil, image: String? = nil, label: String? = nil, background: HexColor? = nil, action: Action? = nil, dynamic: Dynamic? = nil) {
         self.icon = icon
+        self.image = image
         self.label = label
         self.background = background
         self.action = action
@@ -52,13 +55,14 @@ extension Icon {
     /// Parses an icon as written in the config: `sf:<name>`, or an image path.
     /// `~` expands to the home directory; relative paths resolve against `directory`.
     public init(configValue text: String, relativeTo directory: URL) {
-        if text.hasPrefix("sf:") {
-            self = .symbol(String(text.dropFirst(3)))
-        } else {
-            let path = (text as NSString).expandingTildeInPath
-            self = .file(path.hasPrefix("/") ? path : directory.appendingPathComponent(path).path)
-        }
+        self = text.hasPrefix("sf:") ? .symbol(String(text.dropFirst(3))) : .file(resolvePath(text, relativeTo: directory))
     }
+}
+
+/// Expands `~` and resolves a relative path against `directory`.
+public func resolvePath(_ text: String, relativeTo directory: URL) -> String {
+    let path = (text as NSString).expandingTildeInPath
+    return path.hasPrefix("/") ? path : directory.appendingPathComponent(path).path
 }
 
 public struct HexColor: Equatable, Sendable {

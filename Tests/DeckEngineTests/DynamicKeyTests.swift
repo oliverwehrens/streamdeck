@@ -173,3 +173,39 @@ private func image(_ appearance: KeyAppearance) -> Data {
     #expect(transport.images.last { $0.key == 0 }?.jpeg == expected)
     withExtendedLifetime(engine) {}
 }
+
+// MARK: - Full-key image
+
+private func imageConfig() -> DeckConfig {
+    DeckConfig(defaultPage: "home", pages: [
+        "home": Page(keys: [0: KeyDefinition(image: "/configured.png", label: "start", dynamic: Dynamic(run: "art", every: 1))]),
+    ])
+}
+
+@MainActor @Test func jsonImageReplacesConfiguredImage() async {
+    let path = FileManager.default.temporaryDirectory.appendingPathComponent("dynamic-\(UUID().uuidString).png").path
+    let commands = FakeCommands { _, _ in CommandResult(exitCode: 0, stdout: "{\"image\":\"\(path)\"}") }
+    let (engine, transport) = engine(commands, config: imageConfig())
+    // Neither file exists and both render alike, so wait for the problem to name the dynamic path.
+    await eventually { engine.status.problems.first?.message.contains(path) == true }
+    #expect(engine.status.problems.map(\.source) == [.icon(key: 0)])
+    #expect(engine.status.problems.first?.message.contains(path) == true)
+    #expect(transport.images.last { $0.key == 0 }?.jpeg == image(KeyAppearance(image: path, label: "start")))
+}
+
+@MainActor @Test func emptyJSONImageRemovesConfiguredImage() async {
+    let commands = FakeCommands { _, _ in CommandResult(exitCode: 0, stdout: #"{"image":""}"#) }
+    let (engine, transport) = engine(commands, config: imageConfig())
+    await eventually { engine.status.problems.isEmpty }
+    #expect(engine.status.problems.isEmpty)
+    #expect(transport.images.last { $0.key == 0 }?.jpeg == image(KeyAppearance(label: "start")))
+}
+
+@MainActor @Test func omittedJSONImageKeepsConfiguredImage() async {
+    let commands = FakeCommands { _, _ in CommandResult(exitCode: 0, stdout: #"{"label":"on"}"#) }
+    let (engine, transport) = engine(commands, config: imageConfig())
+    let expected = image(KeyAppearance(image: "/configured.png", label: "on"))
+    await eventually { transport.images.last { $0.key == 0 }?.jpeg == expected }
+    #expect(transport.images.last { $0.key == 0 }?.jpeg == expected)
+    #expect(engine.status.problems.first?.message.contains("image file not found or unreadable: /configured.png") == true)
+}

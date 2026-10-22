@@ -75,3 +75,21 @@ private func reason(_ stdout: String) -> String? {
     // Only output starting with `{` is JSON.
     #expect(parse(#"["a"]"#) == .success(DynamicOutput(label: #"["a"]"#)))
 }
+
+// MARK: - Image
+
+@Test func jsonSetsImage() {
+    #expect(parse(#"{"image":"/tmp/cover.jpg","label":"Song"}"#) == .success(DynamicOutput(label: "Song", image: .path("/tmp/cover.jpg"))))
+}
+
+@Test func emptyImageRemovesIt() {
+    #expect(parse(#"{"image":""}"#) == .success(DynamicOutput(image: .remove)))
+}
+
+@Test func imageMustBeString() {
+    #expect(reason(#"{"image":42}"#) == "image must be a string")
+}
+
+@Test func relativeImageResolvesAgainstConfigDirectory() {
+    #expect(parse(#"{"image":"art/on.png"}"#) == .success(DynamicOutput(image: .path("/Users/test/.config/streamdeck/art/on.png"))))
+}

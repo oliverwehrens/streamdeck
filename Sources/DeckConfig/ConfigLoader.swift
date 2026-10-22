@@ -165,11 +165,18 @@ private struct Parser {
 
     private mutating func parseKey(_ node: Node, page: String, index: Int) -> KeyDefinition? {
         guard let map = mapping(node, what: "key definition", page: page, key: index) else { return nil }
-        checkFields(map, allowed: ["icon", "label", "background", "action", "dynamic"], what: "key", page: page, key: index)
+        checkFields(map, allowed: ["icon", "image", "label", "background", "action", "dynamic"], what: "key", page: page, key: index)
         var key = KeyDefinition()
 
         if let value = map["icon"], let text = string(value, what: "icon", page: page, key: index) {
             key.icon = Icon(configValue: text, relativeTo: baseDirectory)
+        }
+        if let value = map["image"], let text = string(value, what: "image", page: page, key: index) {
+            if text.hasPrefix("sf:") {
+                fail("image '\(text)' must be an image file; SF Symbols belong in icon", value, page: page, key: index)
+            } else {
+                key.image = resolvePath(text, relativeTo: baseDirectory)
+            }
         }
         if let value = map["label"] {
             key.label = string(value, what: "label", page: page, key: index)

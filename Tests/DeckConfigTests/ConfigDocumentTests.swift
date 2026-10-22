@@ -100,6 +100,7 @@ func readDocument(_ yaml: String) -> Result<ConfigDocument, ConfigErrors> {
         PageDocument(name: "home", keys: [
             10: KeyDocument(label: "Hello", background: "#2D6A4F", action: ActionDocument(.run, "say hello")),
             0: KeyDocument(icon: "sf:terminal", label: "Terminal", action: ActionDocument(.page, "empty")),
+            1: KeyDocument(icon: "sf:play.fill", image: "art/cat.jpg", label: "Cat"),
             14: KeyDocument(dynamic: DynamicDocument(run: "date", every: "30s")),
         ]),
         PageDocument(name: "empty"),
@@ -115,6 +116,7 @@ func readDocument(_ yaml: String) -> Result<ConfigDocument, ConfigErrors> {
       home:
         keys:
           0: {icon: 'sf:terminal', label: Terminal, action: {page: empty}}
+          1: {icon: 'sf:play.fill', image: art/cat.jpg, label: Cat}
           10: {label: Hello, background: '#2D6A4F', action: {run: say hello}}
           14: {dynamic: {run: date, every: 30s}}
       empty:
@@ -193,6 +195,7 @@ private func generateDocument(_ random: inout SeededRandom) -> ConfigDocument {
         for index in (0 ..< DeckConfig.keyCount).shuffled(using: &random).prefix(Int.random(in: 0 ... 6, using: &random)) {
             keys[index] = KeyDocument(
                 icon: maybe { pick(["sf:terminal", "icons/zoom.png", "~/icons/x.png", "/tmp/a b.png"]) },
+                image: maybe { pick(["art/cat.jpg", "~/Pictures/a b.png", "/tmp/x.png"]) },
                 label: maybe { pick(texts) },
                 background: maybe { String(format: "#%06X", Int.random(in: 0 ... 0xFFFFFF, using: &random)) },
                 action: maybe {

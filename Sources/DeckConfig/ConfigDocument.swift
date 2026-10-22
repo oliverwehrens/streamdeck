@@ -34,13 +34,15 @@ public struct PageDocument: Equatable, Sendable {
 
 public struct KeyDocument: Equatable, Sendable {
     public var icon: String?
+    public var image: String?
     public var label: String?
     public var background: String?
     public var action: ActionDocument?
     public var dynamic: DynamicDocument?
 
-    public init(icon: String? = nil, label: String? = nil, background: String? = nil, action: ActionDocument? = nil, dynamic: DynamicDocument? = nil) {
+    public init(icon: String? = nil, image: String? = nil, label: String? = nil, background: String? = nil, action: ActionDocument? = nil, dynamic: DynamicDocument? = nil) {
         self.icon = icon
+        self.image = image
         self.label = label
         self.background = background
         self.action = action

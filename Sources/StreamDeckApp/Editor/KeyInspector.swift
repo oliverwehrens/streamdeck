@@ -17,6 +17,7 @@ struct KeyInspector: View {
         Form {
             Section {
                 IconEditor(icon: key.icon, configDirectory: model.configDirectory)
+                ImageEditor(image: key.image, configDirectory: model.configDirectory)
                 TextField("Label", text: optionalText(key.label), prompt: Text("None"))
                 BackgroundEditor(background: key.background)
             } header: {
@@ -102,6 +103,31 @@ private struct IconEditor: View {
                 TextField("File", text: Binding(get: { icon ?? "" }, set: { icon = $0 }), prompt: Text("icons/name.png"))
                 Button("Choose…") {
                     if let path = choosePath(types: [.png, .jpeg], configDirectory: configDirectory) { icon = path }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Image
+
+/// A full-key image; empty means none.
+private struct ImageEditor: View {
+    @Binding var image: String?
+    let configDirectory: URL
+
+    var body: some View {
+        LabeledContent("Image") {
+            HStack {
+                TextField("Image", text: optionalText($image), prompt: Text("None"))
+                    .labelsHidden()
+                Button("Choose…") {
+                    if let path = choosePath(types: [.png, .jpeg], configDirectory: configDirectory) { image = path }
+                }
+                if image != nil {
+                    Button(role: .destructive) { image = nil } label: { Image(systemName: "minus.circle") }
+                        .buttonStyle(.borderless)
+                        .help("Remove the image")
                 }
             }
         }
@@ -247,7 +273,7 @@ private struct DynamicEditor: View {
             TextField("Every", text: Binding(get: { dynamic?.every ?? "" }, set: { dynamic?.every = $0 }), prompt: Text("30s"))
             Text("Units ms, s, m, h. Minimum 1s. Runs only while the page is shown.")
                 .font(.caption).foregroundStyle(.secondary)
-            Text(##"Print plain text for the label, or JSON such as {"label":"on","icon":"sf:lightbulb.fill","background":"#c08000"}."##)
+            Text(##"Print plain text for the label, or JSON such as {"label":"on","icon":"sf:lightbulb.fill","background":"#c08000"}. JSON can also set "image"."##)
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

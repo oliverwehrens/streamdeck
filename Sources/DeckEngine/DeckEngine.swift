@@ -266,6 +266,7 @@ public final class DeckEngine {
         var appearance = KeyAppearance(
             background: output?.background ?? definition?.background ?? .black,
             icon: output?.icon ?? definition?.icon,
+            image: Self.image(output?.image, configured: definition?.image),
             label: output?.label ?? definition?.label,
             pressed: pressed.contains(key) && definition?.action != nil,
             error: dynamicFailed.contains(key)
@@ -278,6 +279,14 @@ public final class DeckEngine {
             lastSent[key] = rendered.jpeg
         }
         if notifyAfter { notify() }
+    }
+
+    private static func image(_ override: DynamicOutput.ImageOverride?, configured: String?) -> String? {
+        switch override {
+        case let .path(path): path
+        case .remove: nil
+        case nil: configured
+        }
     }
 
     private func applyBrightness() {

@@ -36,6 +36,7 @@ pages:                    # required; page name -> page
       2: { label: Deploy, background: "#B00020", action: { run: "~/bin/deploy.sh" } }
       3: { icon: sf:mic.slash.fill, action: { keys: cmd+shift+m } }
       4: { icon: sf:music.note, label: Media, action: { page: media } }
+      5: { image: art/cover.jpg, icon: sf:play.fill, label: Album, action: { media: playpause } }
       14:
         label: "--:--"
         dynamic: { run: "date +%H:%M", every: 30s }
@@ -71,10 +72,20 @@ All fields are optional.
 | Field | Value |
 |---|---|
 | `icon` | `sf:<name>` for an SF Symbol (browse with Apple's SF Symbols app), or a PNG/JPEG path. Relative paths resolve against `~/.config/streamdeck/`, `~` expands. |
+| `image` | PNG/JPEG path, drawn across the whole key under `icon` and `label`. Same path rules as `icon`; SF Symbols are not allowed. See [Images](#images). |
 | `label` | Text below the icon, or centered without an icon. Shrinks, wraps to two lines, then truncates. |
 | `background` | Hex color `#RRGGBB`. Default black. |
 | `action` | What a press does. Exactly one of the types below. |
-| `dynamic` | `run` (shell command) and `every` (duration). The command's output replaces `label`, or sets `label`, `icon` and `background` when it prints JSON. See [Dynamic keys](#dynamic-keys). |
+| `dynamic` | `run` (shell command) and `every` (duration). The command's output replaces `label`, or sets `label`, `icon`, `image` and `background` when it prints JSON. See [Dynamic keys](#dynamic-keys). |
+
+## Images
+
+`icon` is drawn inside a fixed box: 48x48 px, or 44x40 px above a label. To fill the whole 72x72 px key, use `image`.
+
+- The image covers the key and keeps its aspect ratio. An image that is not square is cropped at the center.
+- Use a square image of at least 72x72 px. Larger images work but take longer to load.
+- `icon` and `label` are drawn on top. With an image, the label gets a drop shadow.
+- A missing or unreadable image file is left out, and the menu lists it.
 
 ## Actions
 
@@ -113,12 +124,13 @@ Letters map to US key positions.
 
 Plain text: the first line, trimmed, replaces `label`.
 
-JSON: output whose first non-blank character is `{` is read as a JSON object. It can set three fields:
+JSON: output whose first non-blank character is `{` is read as a JSON object. It can set four fields:
 
 | Field | Value |
 |---|---|
 | `label` | Text. `""` hides the label. |
 | `icon` | Same as the `icon` key field: `sf:<name>` or an image path. Relative paths resolve against `~/.config/streamdeck/`. |
+| `image` | Same as the `image` key field: an image path drawn across the whole key. `""` removes the configured image. |
 | `background` | Hex color `#RRGGBB`. |
 
 - A field you leave out keeps the key's configured value.

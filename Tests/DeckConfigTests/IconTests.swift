@@ -19,3 +19,9 @@ private let directory = URL(fileURLWithPath: "/Users/test/.config/streamdeck")
 @Test func relativeIconResolvesAgainstDirectory() {
     #expect(Icon(configValue: "icons/x.png", relativeTo: directory) == .file("/Users/test/.config/streamdeck/icons/x.png"))
 }
+
+@Test func resolvePathHandlesTildeAbsoluteAndRelative() {
+    #expect(resolvePath("~/x.png", relativeTo: directory) == NSHomeDirectory() + "/x.png")
+    #expect(resolvePath("/abs.png", relativeTo: directory) == "/abs.png")
+    #expect(resolvePath("art/x.png", relativeTo: directory) == "/Users/test/.config/streamdeck/art/x.png")
+}

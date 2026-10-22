@@ -58,6 +58,7 @@ extension ConfigDocument {
     private static func keyNode(_ key: KeyDocument) -> Node {
         var pairs: [(Node, Node)] = []
         if let icon = key.icon { pairs.append((scalar("icon"), scalar(icon))) }
+        if let image = key.image { pairs.append((scalar("image"), scalar(image))) }
         if let label = key.label { pairs.append((scalar("label"), scalar(label))) }
         if let background = key.background { pairs.append((scalar("background"), scalar(background))) }
         if let action = key.action {
@@ -121,9 +122,10 @@ private struct DocumentReader {
 
     private mutating func readKey(_ node: Node, page: String, index: Int) -> KeyDocument? {
         guard let map = mapping(node, what: "key definition", page: page, key: index) else { return nil }
-        checkFields(map, allowed: ["icon", "label", "background", "action", "dynamic"], what: "key", page: page, key: index)
+        checkFields(map, allowed: ["icon", "image", "label", "background", "action", "dynamic"], what: "key", page: page, key: index)
         var key = KeyDocument()
         if let value = map["icon"] { key.icon = string(value, what: "icon", page: page, key: index) }
+        if let value = map["image"] { key.image = string(value, what: "image", page: page, key: index) }
         if let value = map["label"] { key.label = string(value, what: "label", page: page, key: index) }
         if let value = map["background"] { key.background = string(value, what: "background", page: page, key: index) }
         if let value = map["action"], let actionMap = mapping(value, what: "action", page: page, key: index) {

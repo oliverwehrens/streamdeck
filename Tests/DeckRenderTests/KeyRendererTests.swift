@@ -144,3 +144,68 @@ func isClose(_ pixel: (r: Int, g: Int, b: Int), _ r: Int, _ g: Int, _ b: Int, to
     let problems = KeyRenderer.render(KeyAppearance(icon: .symbol("no.such.symbol.xyz"))).problems
     #expect(problems == ["unknown SF Symbol: no.such.symbol.xyz"])
 }
+
+// MARK: - Full-key image
+
+/// Writes a PNG drawn by `draw` (y-up coordinates) and returns its path.
+private func writePNG(width: Int, height: Int, _ draw: (CGContext) -> Void) -> String {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("image-\(UUID().uuidString).png")
+    let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+    draw(context)
+    let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil)!
+    CGImageDestinationAddImage(destination, context.makeImage()!, nil)
+    CGImageDestinationFinalize(destination)
+    return url.path
+}
+
+private func fill(_ context: CGContext, _ rect: CGRect, red: CGFloat, green: CGFloat, blue: CGFloat) {
+    context.setFillColor(CGColor(srgbRed: red, green: green, blue: blue, alpha: 1))
+    context.fill(rect)
+}
+
+@Test func squareImageCoversWholeKey() {
+    let path = writePNG(width: 144, height: 144) { fill($0, CGRect(x: 0, y: 0, width: 144, height: 144), red: 1, green: 0, blue: 0) }
+    let (image, problems) = KeyRenderer.renderUpright(KeyAppearance(image: path))
+    let pixels = Pixels(image)
+    #expect(problems.isEmpty)
+    for (x, y) in [(0, 0), (71, 0), (0, 71), (71, 71), (36, 36)] {
+        #expect(isClose(pixels[x, y], 255, 0, 0))
+    }
+}
+
+@Test func wideImageIsCroppedAtCenter() {
+    let path = writePNG(width: 200, height: 100) { context in
+        fill(context, CGRect(x: 0, y: 0, width: 100, height: 100), red: 1, green: 0, blue: 0)
+        fill(context, CGRect(x: 100, y: 0, width: 100, height: 100), red: 0, green: 0, blue: 1)
+    }
+    let pixels = Pixels(KeyRenderer.renderUpright(KeyAppearance(image: path)).0)
+    // Scaled to 144x72 and centered: the left half shows red, the right half blue, no border.
+    #expect(isClose(pixels[0, 0], 255, 0, 0))
+    #expect(isClose(pixels[30, 71], 255, 0, 0))
+    #expect(isClose(pixels[42, 0], 0, 0, 255))
+    #expect(isClose(pixels[71, 71], 0, 0, 255))
+}
+
+@Test func labelHasShadowOnlyOnImage() {
+    let white = HexColor(red: 255, green: 255, blue: 255)
+    let path = writePNG(width: 72, height: 72) { fill($0, CGRect(x: 0, y: 0, width: 72, height: 72), red: 1, green: 1, blue: 1) }
+    func darkest(_ appearance: KeyAppearance) -> Int {
+        let pixels = Pixels(KeyRenderer.renderUpright(appearance).0)
+        return (0 ..< 72).flatMap { y in (0 ..< 72).map { pixels[$0, y].r } }.min()!
+    }
+    // White label on white: invisible without a shadow, visible with one.
+    #expect(darkest(KeyAppearance(background: white, label: "WWW")) > 240)
+    #expect(darkest(KeyAppearance(image: path, label: "WWW")) < 160)
+}
+
+@Test func missingImageIsSkippedAndReported() {
+    let path = "/nonexistent/art/missing.png"
+    let (image, problems) = KeyRenderer.renderUpright(KeyAppearance(background: HexColor(red: 0, green: 0, blue: 255), image: path, label: "Cat"))
+    #expect(problems == ["image file not found or unreadable: \(path)"])
+    let pixels = Pixels(image)
+    let all = (0 ..< 72).flatMap { y in (0 ..< 72).map { pixels[$0, y] } }
+    #expect(isClose(pixels[2, 2], 0, 0, 255))
+    #expect(all.contains { $0.r > 200 && $0.g > 200 })  // label drawn
+    #expect(!all.contains { isClose($0, 153, 153, 153, tolerance: 20) })  // no placeholder
+}

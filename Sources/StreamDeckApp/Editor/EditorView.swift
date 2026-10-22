@@ -250,7 +250,7 @@ private struct KeyGrid: View {
     private func appearance(_ index: Int) -> KeyAppearance {
         guard let key = model.lastValid?.pages[page]?.keys[index] else { return .blank }
         let label = key.label ?? (key.dynamic != nil ? "…" : nil)
-        return KeyAppearance(background: key.background ?? .black, icon: key.icon, label: label)
+        return KeyAppearance(background: key.background ?? .black, icon: key.icon, image: key.image, label: label)
     }
 }
 

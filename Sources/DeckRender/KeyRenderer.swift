@@ -8,13 +8,16 @@ import UniformTypeIdentifiers
 public struct KeyAppearance: Equatable, Sendable {
     public var background: HexColor
     public var icon: Icon?
+    /// Absolute path of an image drawn across the whole key.
+    public var image: String?
     public var label: String?
     public var pressed: Bool
     public var error: Bool
 
-    public init(background: HexColor = .black, icon: Icon? = nil, label: String? = nil, pressed: Bool = false, error: Bool = false) {
+    public init(background: HexColor = .black, icon: Icon? = nil, image: String? = nil, label: String? = nil, pressed: Bool = false, error: Bool = false) {
         self.background = background
         self.icon = icon
+        self.image = image
         self.label = label
         self.pressed = pressed
         self.error = error
@@ -59,6 +62,19 @@ public enum KeyRenderer {
                                      blue: CGFloat(background.blue) / 255, alpha: 1))
         context.fill(bounds)
 
+        var drewImage = false
+        if let path = appearance.image {
+            if let image = loadFile(path) {
+                context.saveGState()
+                context.clip(to: bounds)
+                context.draw(image, in: aspectFill(CGSize(width: image.width, height: image.height), in: bounds))
+                context.restoreGState()
+                drewImage = true
+            } else {
+                problems.append("image file not found or unreadable: \(path)")
+            }
+        }
+
         let label = appearance.label.flatMap { $0.isEmpty ? nil : $0 }
         let iconRect: CGRect = label == nil
             ? bounds.insetBy(dx: 12, dy: 12)
@@ -77,7 +93,13 @@ public enum KeyRenderer {
             let area = appearance.icon == nil
                 ? bounds.insetBy(dx: padding, dy: padding)
                 : CGRect(x: padding, y: 2, width: CGFloat(size) - 2 * padding, height: labelAreaHeight)
+            context.saveGState()
+            if drewImage {
+                // Keeps the label readable on bright images.
+                context.setShadow(offset: CGSize(width: 0, height: -1), blur: 3, color: CGColor(gray: 0, alpha: 0.8))
+            }
             drawLabel(label, in: area, context: context)
+            context.restoreGState()
         }
 
         if appearance.error {
@@ -98,8 +120,7 @@ public enum KeyRenderer {
     static func loadIcon(_ icon: Icon, pointSize: CGFloat) -> CGImage? {
         switch icon {
         case let .file(path):
-            guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil) else { return nil }
-            return CGImageSourceCreateImageAtIndex(source, 0, nil)
+            return loadFile(path)
         case let .symbol(name):
             let configuration = NSImage.SymbolConfiguration(pointSize: pointSize * 0.8, weight: .regular)
                 .applying(.init(paletteColors: [.white]))
@@ -108,6 +129,11 @@ public enum KeyRenderer {
             var rect = CGRect(origin: .zero, size: symbol.size)
             return symbol.cgImage(forProposedRect: &rect, context: nil, hints: [.ctm: AffineTransform(scale: 2)])
         }
+    }
+
+    static func loadFile(_ path: String) -> CGImage? {
+        guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil) else { return nil }
+        return CGImageSourceCreateImageAtIndex(source, 0, nil)
     }
 
     static func missingIconMessage(_ icon: Icon) -> String {
@@ -127,6 +153,14 @@ public enum KeyRenderer {
         context.stroke(square)
         context.restoreGState()
         drawLabel("?", in: square, context: context, color: CGColor(gray: 0.6, alpha: 1))
+    }
+
+    /// Scales `size` to cover `rect`, centered; the overflow is cropped by the caller.
+    static func aspectFill(_ size: CGSize, in rect: CGRect) -> CGRect {
+        guard size.width > 0, size.height > 0 else { return rect }
+        let scale = max(rect.width / size.width, rect.height / size.height)
+        let filled = CGSize(width: size.width * scale, height: size.height * scale)
+        return CGRect(x: rect.midX - filled.width / 2, y: rect.midY - filled.height / 2, width: filled.width, height: filled.height)
     }
 
     static func aspectFit(_ size: CGSize, in rect: CGRect) -> CGRect {
