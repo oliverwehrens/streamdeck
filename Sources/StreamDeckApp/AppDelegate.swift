@@ -2,6 +2,8 @@ import AppKit
 import DeckConfig
 import DeckEngine
 import DeckHID
+import DeckPlatformMac
+import DeckRender
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -18,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let commands = ShellRunner()
         engine = DeckEngine(
             transport: IOKitTransport(),
+            renderer: AppKitKeyRenderer(),
             performer: SystemActionPerformer(commands: commands),
             commands: commands,
             configDirectory: configURL.deletingLastPathComponent(),

@@ -13,8 +13,8 @@ public struct DeviceInfo: Equatable, Sendable {
 public enum DeviceEvent: Equatable, Sendable {
     case connected(DeviceInfo)
     case disconnected
-    /// The device was found but could not be opened; carries the IOReturn code.
-    case openFailed(Int32)
+    /// The device was found but could not be opened; carries the message for the user.
+    case openFailed(String)
     case key(KeyEvent)
 }
 

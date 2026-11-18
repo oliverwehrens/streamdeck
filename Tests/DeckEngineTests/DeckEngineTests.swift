@@ -1,6 +1,5 @@
 import DeckConfig
 import DeckHID
-import DeckRender
 import Foundation
 import Testing
 @testable import DeckEngine
@@ -27,7 +26,7 @@ private func twoPages() -> DeckConfig {
 private func connectedEngine(_ config: DeckConfig = twoPages(), performer: FakePerformer = FakePerformer(),
                              commands: FakeCommands = noCommands) async -> (DeckEngine, FakeTransport) {
     let transport = FakeTransport()
-    let engine = DeckEngine(transport: transport, performer: performer, commands: commands, configDirectory: testConfigDirectory, ownBundleID: "own", frontmostApp: nil)
+    let engine = DeckEngine(transport: transport, renderer: FakeRenderer(), performer: performer, commands: commands, configDirectory: testConfigDirectory, ownBundleID: "own", frontmostApp: nil)
     engine.start()
     engine.configLoaded(config)
     engine.handle(.connected(info))
@@ -118,7 +117,7 @@ private func connectedEngine(_ config: DeckConfig = twoPages(), performer: FakeP
 
 @MainActor @Test func nothingIsWrittenWhileDisconnected() async {
     let transport = FakeTransport()
-    let engine = DeckEngine(transport: transport, performer: FakePerformer(), commands: noCommands, configDirectory: testConfigDirectory, ownBundleID: "own", frontmostApp: nil)
+    let engine = DeckEngine(transport: transport, renderer: FakeRenderer(), performer: FakePerformer(), commands: noCommands, configDirectory: testConfigDirectory, ownBundleID: "own", frontmostApp: nil)
     engine.configLoaded(twoPages())
     #expect(transport.images.isEmpty)
     engine.handle(.connected(info))
@@ -152,7 +151,7 @@ private func connectedEngine(_ config: DeckConfig = twoPages(), performer: FakeP
     let (engine, transport) = await connectedEngine()
     transport.clear()
     engine.shutdown()
-    let blank = KeyRenderer.render(.blank).jpeg
+    let blank = FakeRenderer().render(.blank).jpeg
     #expect(transport.images.count == 15)
     #expect(transport.images.allSatisfy { $0.jpeg == blank })
     #expect(transport.stopped)
@@ -168,10 +167,18 @@ private func connectedEngine(_ config: DeckConfig = twoPages(), performer: FakeP
 
 @MainActor @Test func deviceEventsArriveThroughTransportStream() async {
     let transport = FakeTransport()
-    let engine = DeckEngine(transport: transport, performer: FakePerformer(), commands: noCommands, configDirectory: testConfigDirectory, ownBundleID: "own", frontmostApp: nil)
+    let engine = DeckEngine(transport: transport, renderer: FakeRenderer(), performer: FakePerformer(), commands: noCommands, configDirectory: testConfigDirectory, ownBundleID: "own", frontmostApp: nil)
     engine.start()
     engine.configLoaded(twoPages())
     transport.continuation.yield(.connected(info))
     await eventually { engine.status.connected }
     #expect(engine.status.connected)
+}
+
+@MainActor @Test func openFailureMessageComesFromTheTransport() async {
+    let transport = FakeTransport()
+    let engine = DeckEngine(transport: transport, renderer: FakeRenderer(), performer: FakePerformer(), commands: noCommands, configDirectory: testConfigDirectory, ownBundleID: "own", frontmostApp: nil)
+    engine.handle(.openFailed("Cannot open the Stream Deck: test reason."))
+    #expect(engine.status.problems.map(\.source) == [.device])
+    #expect(engine.status.problems.map(\.message) == ["Cannot open the Stream Deck: test reason."])
 }

@@ -1,6 +1,5 @@
 import DeckConfig
 import DeckHID
-import DeckRender
 import Foundation
 import Testing
 @testable import DeckEngine
@@ -20,14 +19,14 @@ private func dynamicConfig(every: TimeInterval = 1) -> DeckConfig {
 @MainActor
 private func engine(_ commands: FakeCommands, config: DeckConfig = dynamicConfig()) -> (DeckEngine, FakeTransport) {
     let transport = FakeTransport()
-    let engine = DeckEngine(transport: transport, performer: FakePerformer(), commands: commands, configDirectory: testConfigDirectory, ownBundleID: "own", frontmostApp: nil)
+    let engine = DeckEngine(transport: transport, renderer: FakeRenderer(), performer: FakePerformer(), commands: commands, configDirectory: testConfigDirectory, ownBundleID: "own", frontmostApp: nil)
     engine.configLoaded(config)
     engine.handle(.connected(DeviceInfo(serial: "", firmware: "")))
     return (engine, transport)
 }
 
 private func image(label: String, error: Bool = false) -> Data {
-    KeyRenderer.render(KeyAppearance(label: label, error: error)).jpeg
+    FakeRenderer().render(KeyAppearance(label: label, error: error)).jpeg
 }
 
 @MainActor @Test func firstLineOfOutputBecomesLabel() async {
@@ -123,7 +122,7 @@ private func styledConfig() -> DeckConfig {
 }
 
 private func image(_ appearance: KeyAppearance) -> Data {
-    KeyRenderer.render(appearance).jpeg
+    FakeRenderer().render(appearance).jpeg
 }
 
 @MainActor @Test func jsonSetsIconLabelAndBackground() async {

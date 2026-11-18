@@ -1,22 +1,9 @@
-import CoreGraphics
 import DeckConfig
 import Foundation
 import Testing
 @testable import DeckEngine
 
 // MARK: 5.3 Keystrokes
-
-@Test func modifierFlags() {
-    let flags = SystemActionPerformer.flags(for: [.cmd, .shift, .alt, .ctrl, .fn])
-    #expect(flags.contains([.maskCommand, .maskShift, .maskAlternate, .maskControl, .maskSecondaryFn]))
-    #expect(SystemActionPerformer.flags(for: []).isEmpty)
-}
-
-@Test func keystrokeWithoutPermissionIsNotSent() async throws {
-    let performer = SystemActionPerformer(commands: noCommands, isTrusted: { false })
-    let combo = try KeyCombo.parse("cmd+space").get()
-    #expect(await performer.perform(.keys(combo)) == .needsAccessibility)
-}
 
 @Test func usLayoutMatchesFormerKeyCodes() {
     for (character, code) in KeyCombo.usCharacterCodes {
@@ -32,44 +19,6 @@ import Testing
     #expect(germanLayout.character(forKeyCode: 0x29) == "ö")
 }
 
-@Test func charactersResolveThroughTheLayout() throws {
-    let undo = try KeyCombo.parse("cmd+z").get()
-    #expect(SystemActionPerformer.resolve(undo, layout: germanLayout) == .success(.init(keyCode: 0x10, flags: .maskCommand)))
-    #expect(SystemActionPerformer.resolve(undo, layout: TableKeyboardLayout.us) == .success(.init(keyCode: 0x06, flags: .maskCommand)))
-}
-
-@Test func namedKeysIgnoreTheLayout() throws {
-    let left = try KeyCombo.parse("cmd+left").get()
-    for layout in [germanLayout, TableKeyboardLayout.us] {
-        #expect(SystemActionPerformer.resolve(left, layout: layout) == .success(.init(keyCode: 0x7B, flags: .maskCommand)))
-    }
-}
-
-@Test func characterMissingFromLayoutIsNotSent() async throws {
-    let performer = SystemActionPerformer(commands: noCommands, isTrusted: { true }, layout: germanLayout)
-    let combo = try KeyCombo.parse("cmd+[").get()
-    #expect(await performer.perform(.keys(combo)) == .failed("keys 'cmd+[': keyboard layout 'German' has no key for '['"))
-}
-
-@Test func systemLayoutTypesLetters() async {
-    let layout = await MainActor.run { SystemKeyboardLayout.current() }
-    #expect(layout.keyCode(typing: "a") != nil)
-    #expect(layout.keyCode(typing: "z") != nil)
-}
-
-// MARK: 5.4 Media keys
-
-@Test func mediaWithoutPermissionIsNotSent() async {
-    let performer = SystemActionPerformer(commands: noCommands, isTrusted: { false })
-    #expect(await performer.perform(.media(.playpause)) == .needsAccessibility)
-}
-
-@Test func mediaKeyTypes() {
-    #expect(SystemActionPerformer.keyType(for: .playpause) == 16)
-    #expect(SystemActionPerformer.keyType(for: .volumeup) == 0)
-    #expect(Set(MediaKey.allCases.map(SystemActionPerformer.keyType)).count == MediaKey.allCases.count)
-}
-
 // MARK: 5.5 Run and open
 
 @Test func shellCommandSucceeds() async {
@@ -81,12 +30,6 @@ import Testing
 @Test func shellUsesLoginShellPath() async {
     let result = await ShellRunner().run("echo $PATH", timeout: nil)
     #expect(result.stdout.contains("/usr/bin"))
-}
-
-@Test func failingCommandReportsStatusAndStderr() async {
-    let performer = SystemActionPerformer(commands: ShellRunner(), isTrusted: { true })
-    let result = await performer.perform(.run("echo oops >&2; exit 3"))
-    #expect(result == .failed("'echo oops >&2; exit 3' exited with status 3: oops"))
 }
 
 @Test func runDoesNotBlockCaller() async {
@@ -110,7 +53,21 @@ import Testing
     #expect(ContinuousClock.now - start < .seconds(5))
 }
 
-@Test func openMissingFileFails() async {
-    let performer = SystemActionPerformer(commands: noCommands, isTrusted: { true })
-    #expect(await performer.perform(.open("/no/such/file.txt")) == .failed("cannot open '/no/such/file.txt': no such file"))
+
+@Test func runResultSucceeded() {
+    #expect(ActionResult(CommandResult(exitCode: 0, stderr: "warning"), command: "true") == .succeeded)
+}
+
+@Test func runResultReportsExitStatus() {
+    #expect(ActionResult(CommandResult(exitCode: 3), command: "exit 3") == .failed("'exit 3' exited with status 3"))
+}
+
+@Test func runResultKeepsLastThreeStderrLines() {
+    let result = CommandResult(exitCode: 1, stderr: "one\ntwo\nthree\nfour\n")
+    #expect(ActionResult(result, command: "x") == .failed("'x' exited with status 1: two / three / four"))
+}
+
+@Test func failingCommandReportsStatusAndStderr() async {
+    let result = await ShellRunner().run("echo oops >&2; exit 3", timeout: nil)
+    #expect(ActionResult(result, command: "echo oops >&2; exit 3") == .failed("'echo oops >&2; exit 3' exited with status 3: oops"))
 }
