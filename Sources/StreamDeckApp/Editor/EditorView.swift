@@ -1,5 +1,6 @@
 import DeckConfig
 import DeckEngine
+import DeckPlatformMac
 import DeckRender
 import SwiftUI
 
@@ -208,6 +209,9 @@ private struct PageEditor: View {
 }
 
 private struct KeyGrid: View {
+    /// The device's renderer, so previews show exactly what the deck shows.
+    private static let renderer = KeyRenderer(sfSymbols: AppKitSFSymbolSource())
+
     let model: EditorModel
     let page: String
 
@@ -228,7 +232,7 @@ private struct KeyGrid: View {
     private func cell(_ index: Int) -> some View {
         let selected = model.selectedKey == index
         let hasErrors = !model.errors(page: page, key: index).isEmpty
-        return Image(decorative: KeyRenderer.preview(appearance(index)), scale: 1)
+        return Image(decorative: Self.renderer.preview(appearance(index)).cgImage, scale: 1)
             .resizable()
             .interpolation(.high)
             .frame(width: 80, height: 80)

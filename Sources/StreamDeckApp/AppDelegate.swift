@@ -20,7 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let commands = ShellRunner()
         engine = DeckEngine(
             transport: IOKitTransport(),
-            renderer: AppKitKeyRenderer(),
+            renderer: KeyRenderer(sfSymbols: AppKitSFSymbolSource()),
             performer: SystemActionPerformer(commands: commands),
             commands: commands,
             configDirectory: configURL.deletingLastPathComponent(),

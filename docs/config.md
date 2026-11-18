@@ -9,7 +9,7 @@ You can edit the file by hand, as described below, or with the config editor.
 **Edit Config…** in the menu-bar menu opens the editor. It edits everything in this file: keys, pages (add, rename, delete) and settings (brightness, default page, app pages).
 
 - **Live preview.** The deck shows your changes as you make them. `config.yaml` changes only when you click **Save** (Cmd-S). **Revert** returns to the saved file. Closing the window with unsaved changes asks whether to save or discard them.
-- **Icons.** For an SF Symbol, click **Choose…** to browse every symbol by category or search by name or keyword. Click one to use it.
+- **Icons.** For a Material Symbol, type its name, such as `play_arrow`, and turn on **Filled** for the filled style. **Browse** opens Google's catalog. A name the app doesn't know is marked in red. For an SF Symbol, click **Choose…** to browse every symbol by category or search by name or keyword. Click one to use it.
 - **Keystrokes.** Click the Keys field and press the combination. The field fills in the config text, for example `cmd+shift+m`, `f12` or `ctrl+alt+left`. Esc cancels; clicking elsewhere or switching keys stops recording. While recording, editor shortcuts such as Cmd-S are recorded instead of run. Letters follow your active keyboard layout. F-keys and arrows never record `fn`, because macOS adds it on its own; other keys record `fn` only when you hold it. A key without a config name, such as a keypad key or `ö`, shows a message instead. Shortcuts macOS keeps for itself, such as Cmd-Space or Cmd-Tab, never reach the editor: use **Edit as Text** and type them. The clear button empties the field.
 - **Errors** appear next to the key, page or setting they belong to. Save stays disabled until they are fixed, and the deck keeps showing the last valid state.
 - **Selecting keys from the deck.** While the editor window is in front, the deck shows the page you are editing. Pressing a key selects it in the editor instead of running its action. Switch to another app and the deck works normally again.
@@ -35,18 +35,18 @@ pages:                    # required; page name -> page
       0: { icon: sf:terminal, label: Terminal, action: { open: /System/Applications/Utilities/Terminal.app } }
       1: { icon: icons/zoom.png, label: Zoom, action: { open: /Applications/zoom.us.app } }
       2: { label: Deploy, background: "#B00020", action: { run: "~/bin/deploy.sh" } }
-      3: { icon: sf:mic.slash.fill, action: { keys: cmd+shift+m } }
-      4: { icon: sf:music.note, label: Media, action: { page: media } }
-      5: { image: art/cover.jpg, icon: sf:play.fill, label: Album, action: { media: playpause } }
+      3: { icon: ms:mic_off, action: { keys: cmd+shift+m } }
+      4: { icon: ms:music_note, label: Media, action: { page: media } }
+      5: { image: art/cover.jpg, icon: ms:play_arrow.fill, label: Album, action: { media: playpause } }
       14:
         label: "--:--"
         dynamic: { run: "date +%H:%M", every: 30s }
 
   media:
     keys:
-      0: { icon: sf:playpause.fill, action: { media: playpause } }
-      1: { icon: sf:forward.fill, action: { media: next } }
-      14: { icon: sf:arrow.uturn.left, label: Back, action: { page: back } }
+      0: { icon: ms:play_pause, action: { media: playpause } }
+      1: { icon: ms:skip_next.fill, action: { media: next } }
+      14: { icon: ms:arrow_back, label: Back, action: { page: back } }
 
   browser:
     keys:
@@ -72,12 +72,21 @@ All fields are optional.
 
 | Field | Value |
 |---|---|
-| `icon` | `sf:<name>` for an SF Symbol (browse with Apple's SF Symbols app), or a PNG/JPEG path. Relative paths resolve against `~/.config/streamdeck/`, `~` expands. |
-| `image` | PNG/JPEG path, drawn across the whole key under `icon` and `label`. Same path rules as `icon`; SF Symbols are not allowed. See [Images](#images). |
-| `label` | Text below the icon, or centered without an icon. Shrinks, wraps to two lines, then truncates. |
+| `icon` | `ms:<name>` for a Material Symbol, `ms:<name>.fill` for its filled style, `sf:<name>` for an SF Symbol (macOS only), or a PNG/JPEG path. Relative paths resolve against `~/.config/streamdeck/`, `~` expands. See [Symbols](#symbols). |
+| `image` | PNG/JPEG path, drawn across the whole key under `icon` and `label`. Same path rules as `icon`; symbols are not allowed. See [Images](#images). |
+| `label` | Text below the icon, or centered without an icon. Shrinks, wraps to two lines, then truncates. Characters the bundled font lacks, such as emoji, show as a box. |
 | `background` | Hex color `#RRGGBB`. Default black. |
 | `action` | What a press does. Exactly one of the types below. |
 | `dynamic` | `run` (shell command) and `every` (duration). The command's output replaces `label`, or sets `label`, `icon`, `image` and `background` when it prints JSON. See [Dynamic keys](#dynamic-keys). |
+
+## Symbols
+
+Symbol icons are drawn in white.
+
+- **Material Symbols** (`ms:`) are built into the app and look the same on macOS and Linux. Find names in the [Material Symbols catalog](https://fonts.google.com/icons?icon.set=Material+Symbols). Names use underscores, for example `ms:play_arrow`, `ms:skip_next` or `ms:lightbulb`. Add `.fill` for the filled style, `ms:lightbulb.fill`. The style is Outlined, weight 400. Use `ms:` for configs you share between machines.
+- **SF Symbols** (`sf:`) are Apple's, and only macOS can draw them. Browse them with Apple's SF Symbols app or the config editor. On Linux, an `sf:` icon shows a dashed placeholder and the problem is reported. The rest of the config still works.
+
+An unknown symbol name shows the same placeholder, and the problem is listed in the menu.
 
 ## Images
 
@@ -132,7 +141,7 @@ JSON: output whose first non-blank character is `{` is read as a JSON object. It
 | Field | Value |
 |---|---|
 | `label` | Text. `""` hides the label. |
-| `icon` | Same as the `icon` key field: `sf:<name>` or an image path. Relative paths resolve against `~/.config/streamdeck/`. |
+| `icon` | Same as the `icon` key field: `ms:<name>`, `ms:<name>.fill`, `sf:<name>` or an image path. Relative paths resolve against `~/.config/streamdeck/`. |
 | `image` | Same as the `image` key field: an image path drawn across the whole key. `""` removes the configured image. |
 | `background` | Hex color `#RRGGBB`. |
 
@@ -143,7 +152,7 @@ JSON: output whose first non-blank character is `{` is read as a JSON object. It
 Example: a Home Assistant light. `HA_TOKEN` must be exported in `~/.zprofile` or `~/.zshenv`, because commands run in a login shell that does not read `~/.zshrc`.
 
 ```yaml
-4: { icon: sf:lightbulb, dynamic: { run: "~/.config/streamdeck/ha-light.sh kitchen", every: 10s } }
+4: { icon: ms:lightbulb, dynamic: { run: "~/.config/streamdeck/ha-light.sh kitchen", every: 10s } }
 ```
 
 ```sh
@@ -152,8 +161,8 @@ Example: a Home Assistant light. `HA_TOKEN` must be exported in `~/.zprofile` or
 state=$(curl -sf -H "Authorization: Bearer $HA_TOKEN" \
   "http://homeassistant.local:8123/api/states/light.$1" | jq -r .state) || exit 1
 case $state in
-  on) echo '{"icon":"sf:lightbulb.fill","background":"#c08000","label":"on"}' ;;
-  *)  echo '{"icon":"sf:lightbulb","background":"#202020","label":"off"}' ;;
+  on) echo '{"icon":"ms:lightbulb.fill","background":"#c08000","label":"on"}' ;;
+  *)  echo '{"icon":"ms:lightbulb","background":"#202020","label":"off"}' ;;
 esac
 ```
 

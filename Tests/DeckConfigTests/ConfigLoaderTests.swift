@@ -180,3 +180,17 @@ func errors(_ yaml: String) -> [ConfigError] {
     #expect(found.first?.key == 3)
     #expect(found.first?.message.contains("SF Symbols belong in icon") == true)
 }
+
+@Test func materialSymbolAsImageFails() {
+    let found = errors("default_page: home\npages: { home: { keys: { 3: { image: ms:star } } } }\n")
+    #expect(found.count == 1)
+    #expect(found.first?.page == "home")
+    #expect(found.first?.key == 3)
+    #expect(found.first?.message.contains("Material Symbols belong in icon") == true)
+}
+
+@Test func materialSymbolIconLoads() throws {
+    let config = try load("default_page: home\npages: { home: { keys: { 0: { icon: ms:play_arrow }, 1: { icon: ms:no_such_symbol } } } }\n").get()
+    #expect(config.pages["home"]?.keys[0]?.icon == .material(name: "play_arrow", filled: false))
+    #expect(config.pages["home"]?.keys[1]?.icon == .material(name: "no_such_symbol", filled: false))
+}

@@ -1,5 +1,6 @@
 import AppKit
 import DeckConfig
+import DeckRender
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -55,15 +56,19 @@ private struct IconEditor: View {
     @State private var pickingSymbol = false
 
     private enum Kind: String, CaseIterable {
-        case none = "None", symbol = "SF Symbol", file = "Image"
+        case none = "None", material = "Material Symbol", symbol = "SF Symbol", file = "Image"
     }
 
     private var kind: Binding<Kind> {
         Binding(
-            get: { icon == nil ? .none : icon!.hasPrefix("sf:") ? .symbol : .file },
+            get: {
+                guard let icon else { return .none }
+                return icon.hasPrefix("ms:") ? .material : icon.hasPrefix("sf:") ? .symbol : .file
+            },
             set: { kind in
                 switch kind {
                 case .none: icon = nil
+                case .material: icon = "ms:"
                 case .symbol: icon = "sf:"
                 case .file: icon = ""
                 }
@@ -78,6 +83,22 @@ private struct IconEditor: View {
         switch kind.wrappedValue {
         case .none:
             EmptyView()
+        case .material:
+            let material = MaterialIcon(configValue: icon ?? "ms:") ?? MaterialIcon(name: "", filled: false)
+            HStack {
+                TextField("Symbol", text: Binding(get: { material.name }, set: {
+                    icon = MaterialIcon(name: $0.trimmingCharacters(in: .whitespaces), filled: material.filled).configValue
+                }), prompt: Text("e.g. play_arrow"))
+                if !material.name.isEmpty && !MaterialSymbols.contains(material.name) {
+                    Image(systemName: "questionmark.square.dashed").foregroundStyle(.red).frame(width: 24)
+                        .help("Unknown Material Symbol")
+                }
+                Link("Browse", destination: URL(string: "https://fonts.google.com/icons?icon.set=Material+Symbols")!)
+                    .help("Material Symbols catalog; use the icon's name, such as play_arrow")
+            }
+            Toggle("Filled", isOn: Binding(get: { material.filled }, set: {
+                icon = MaterialIcon(name: material.name, filled: $0).configValue
+            }))
         case .symbol:
             let name = String((icon ?? "sf:").dropFirst(3))
             HStack {

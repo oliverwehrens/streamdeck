@@ -1,55 +1,52 @@
-import AppKit
-import CoreText
 import DeckConfig
 import DeckEngine
-import ImageIO
-import UniformTypeIdentifiers
+import Foundation
 
-/// Renders with AppKit and CoreText; the engine's `KeyRendering` port.
-public struct AppKitKeyRenderer: KeyRendering {
-    public init() {}
-
-    public func render(_ appearance: KeyAppearance) -> RenderedKey {
-        KeyRenderer.render(appearance)
-    }
+/// Draws SF Symbols, which only exist on macOS. The platform passes one to `KeyRenderer`.
+public protocol SFSymbolSource: Sendable {
+    /// The symbol in white, rasterized for a box `pointSize` high, or nil if there's no such symbol.
+    func image(named name: String, pointSize: Double) -> RGBAImage?
 }
 
-public enum KeyRenderer {
+/// Draws keys the same way on every platform: the engine's `KeyRendering` port and the editor previews.
+public struct KeyRenderer: KeyRendering {
     public static let size = 72
-    static let padding: CGFloat = 4
-    static let maxFontSize: CGFloat = 14
-    static let minFontSize: CGFloat = 9
-    static let labelAreaHeight: CGFloat = 24
+    static let padding = 4.0
+    static let labelAreaHeight = 24.0
 
-    /// Renders and encodes a key for the device.
-    public static func render(_ appearance: KeyAppearance) -> RenderedKey {
+    private let sfSymbols: (any SFSymbolSource)?
+
+    /// Without `sfSymbols`, `sf:` icons draw a placeholder and report a problem.
+    public init(sfSymbols: (any SFSymbolSource)? = nil) {
+        self.sfSymbols = sfSymbols
+    }
+
+    /// Encoded for the device: JPEG, rotated 180 degrees.
+    public func render(_ appearance: KeyAppearance) -> RenderedKey {
         let (image, problems) = renderUpright(appearance)
-        return RenderedKey(jpeg: encodeJPEG(flipped(image)), problems: problems)
+        return RenderedKey(jpeg: image.rotated180().jpeg(), problems: problems)
     }
 
     /// The key as the user sees it on the device, for on-screen previews.
-    public static func preview(_ appearance: KeyAppearance) -> CGImage {
+    public func preview(_ appearance: KeyAppearance) -> RGBAImage {
         renderUpright(appearance).0
     }
 
-    /// The key image as the user sees it, before the device flip.
-    static func renderUpright(_ appearance: KeyAppearance) -> (CGImage, [String]) {
-        let context = makeContext()
-        let bounds = CGRect(x: 0, y: 0, width: size, height: size)
+    // MARK: - Layers
+
+    func renderUpright(_ appearance: KeyAppearance) -> (RGBAImage, [String]) {
+        var canvas = Canvas(width: Self.size, height: Self.size)
+        let bounds = canvas.bounds
         var problems: [String] = []
 
         let background = appearance.background
-        context.setFillColor(CGColor(srgbRed: CGFloat(background.red) / 255, green: CGFloat(background.green) / 255,
-                                     blue: CGFloat(background.blue) / 255, alpha: 1))
-        context.fill(bounds)
+        canvas.fill(bounds, Color(red: Float(background.red) / 255, green: Float(background.green) / 255,
+                                  blue: Float(background.blue) / 255))
 
         var drewImage = false
         if let path = appearance.image {
-            if let image = loadFile(path) {
-                context.saveGState()
-                context.clip(to: bounds)
-                context.draw(image, in: aspectFill(CGSize(width: image.width, height: image.height), in: bounds))
-                context.restoreGState()
+            if let image = RGBAImage(contentsOfFile: path) {
+                canvas.draw(image, in: bounds.aspectFill(width: Double(image.width), height: Double(image.height)))
                 drewImage = true
             } else {
                 problems.append("image file not found or unreadable: \(path)")
@@ -57,197 +54,107 @@ public enum KeyRenderer {
         }
 
         let label = appearance.label.flatMap { $0.isEmpty ? nil : $0 }
-        let iconRect: CGRect = label == nil
+        let size = Double(Self.size)
+        let iconBox = label == nil
             ? bounds.insetBy(dx: 12, dy: 12)
-            : CGRect(x: 14, y: labelAreaHeight + 2, width: CGFloat(size) - 28, height: CGFloat(size) - labelAreaHeight - 8)
+            : Rect(x: 14, y: 6, width: size - 28, height: size - Self.labelAreaHeight - 8)
 
         if let icon = appearance.icon {
-            if let image = loadIcon(icon, pointSize: iconRect.height) {
-                context.draw(image, in: aspectFit(CGSize(width: image.width, height: image.height), in: iconRect))
-            } else {
-                problems.append(missingIconMessage(icon))
-                drawPlaceholder(in: iconRect, context: context)
+            if let problem = drawIcon(icon, in: iconBox, on: &canvas) {
+                problems.append(problem)
+                drawPlaceholder(in: iconBox, on: &canvas)
             }
         }
 
         if let label {
             let area = appearance.icon == nil
-                ? bounds.insetBy(dx: padding, dy: padding)
-                : CGRect(x: padding, y: 2, width: CGFloat(size) - 2 * padding, height: labelAreaHeight)
-            context.saveGState()
-            if drewImage {
-                // Keeps the label readable on bright images.
-                context.setShadow(offset: CGSize(width: 0, height: -1), blur: 3, color: CGColor(gray: 0, alpha: 0.8))
-            }
-            drawLabel(label, in: area, context: context)
-            context.restoreGState()
+                ? bounds.insetBy(dx: Self.padding, dy: Self.padding)
+                : Rect(x: Self.padding, y: size - 2 - Self.labelAreaHeight, width: size - 2 * Self.padding, height: Self.labelAreaHeight)
+            drawLabel(label, in: area, on: &canvas, shadow: drewImage)
         }
 
         if appearance.error {
-            context.setFillColor(CGColor(srgbRed: 0.9, green: 0.1, blue: 0.1, alpha: 1))
-            context.fillEllipse(in: CGRect(x: CGFloat(size) - 13, y: CGFloat(size) - 13, width: 10, height: 10))
+            canvas.fillEllipse(Rect(x: size - 13, y: 3, width: 10, height: 10), Color(red: 0.9, green: 0.1, blue: 0.1))
         }
 
         if appearance.pressed {
-            context.setFillColor(CGColor(gray: 0, alpha: 0.4))
-            context.fill(bounds)
+            canvas.fill(bounds, Color(gray: 0, alpha: 0.4))
         }
 
-        return (context.makeImage()!, problems)
+        return (canvas.image(), problems)
     }
 
     // MARK: - Icons
 
-    static func loadIcon(_ icon: Icon, pointSize: CGFloat) -> CGImage? {
+    /// Draws the icon, or returns the problem when it can't.
+    private func drawIcon(_ icon: Icon, in box: Rect, on canvas: inout Canvas) -> String? {
         switch icon {
         case let .file(path):
-            return loadFile(path)
+            guard let image = RGBAImage(contentsOfFile: path) else { return "icon file not found or unreadable: \(path)" }
+            canvas.draw(image, in: box.aspectFit(width: Double(image.width), height: Double(image.height)))
+            return nil
+        case let .material(name, filled):
+            var mask = Mask(width: canvas.width, height: canvas.height)
+            guard MaterialSymbols.draw(name, filled: filled, in: box, into: &mask) else {
+                return "unknown Material Symbol: \(name)"
+            }
+            canvas.fill(mask, .white)
+            return nil
         case let .symbol(name):
-            let configuration = NSImage.SymbolConfiguration(pointSize: pointSize * 0.8, weight: .regular)
-                .applying(.init(paletteColors: [.white]))
-            guard let symbol = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
-                .withSymbolConfiguration(configuration) else { return nil }
-            var rect = CGRect(origin: .zero, size: symbol.size)
-            return symbol.cgImage(forProposedRect: &rect, context: nil, hints: [.ctm: AffineTransform(scale: 2)])
+            guard let sfSymbols else {
+                return "SF Symbols are only available on macOS: sf:\(name). Use an ms: icon instead."
+            }
+            guard let image = sfSymbols.image(named: name, pointSize: box.height) else { return "unknown SF Symbol: \(name)" }
+            canvas.draw(image, in: box.aspectFit(width: Double(image.width), height: Double(image.height)))
+            return nil
         }
     }
 
-    static func loadFile(_ path: String) -> CGImage? {
-        guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil) else { return nil }
-        return CGImageSourceCreateImageAtIndex(source, 0, nil)
-    }
-
-    static func missingIconMessage(_ icon: Icon) -> String {
-        switch icon {
-        case let .file(path): "icon file not found or unreadable: \(path)"
-        case let .symbol(name): "unknown SF Symbol: \(name)"
-        }
-    }
-
-    /// A dashed outline with a question mark.
-    static func drawPlaceholder(in rect: CGRect, context: CGContext) {
-        let square = aspectFit(CGSize(width: 1, height: 1), in: rect).insetBy(dx: 4, dy: 4)
-        context.saveGState()
-        context.setStrokeColor(CGColor(gray: 0.6, alpha: 1))
-        context.setLineWidth(2)
-        context.setLineDash(phase: 0, lengths: [4, 3])
-        context.stroke(square)
-        context.restoreGState()
-        drawLabel("?", in: square, context: context, color: CGColor(gray: 0.6, alpha: 1))
-    }
-
-    /// Scales `size` to cover `rect`, centered; the overflow is cropped by the caller.
-    static func aspectFill(_ size: CGSize, in rect: CGRect) -> CGRect {
-        guard size.width > 0, size.height > 0 else { return rect }
-        let scale = max(rect.width / size.width, rect.height / size.height)
-        let filled = CGSize(width: size.width * scale, height: size.height * scale)
-        return CGRect(x: rect.midX - filled.width / 2, y: rect.midY - filled.height / 2, width: filled.width, height: filled.height)
-    }
-
-    static func aspectFit(_ size: CGSize, in rect: CGRect) -> CGRect {
-        guard size.width > 0, size.height > 0 else { return rect }
-        let scale = min(rect.width / size.width, rect.height / size.height)
-        let fitted = CGSize(width: size.width * scale, height: size.height * scale)
-        return CGRect(x: rect.midX - fitted.width / 2, y: rect.midY - fitted.height / 2, width: fitted.width, height: fitted.height)
+    /// A dashed gray outline with a question mark.
+    private func drawPlaceholder(in box: Rect, on canvas: inout Canvas) {
+        let side = min(box.width, box.height)
+        let square = Rect(x: box.midX - side / 2, y: box.midY - side / 2, width: side, height: side).insetBy(dx: 4, dy: 4)
+        let gray = Color(gray: 0.6)
+        canvas.strokeDashedRect(square, lineWidth: 2, dash: (4, 3), gray)
+        drawLabel("?", in: square, on: &canvas, color: gray)
     }
 
     // MARK: - Labels
 
-    /// Draws text centered in `area`: shrinks from 14 to 9 pt, wraps to two lines, then truncates.
-    static func drawLabel(_ text: String, in area: CGRect, context: CGContext, color: CGColor = CGColor(gray: 1, alpha: 1)) {
-        let lines = layoutLabel(text, width: area.width, height: area.height, color: color)
-        let lineHeight = lines.first.map { lineMetrics($0).height } ?? 0
-        let total = lineHeight * CGFloat(lines.count)
-        var baselineTop = area.midY + total / 2
-        for line in lines {
-            let metrics = lineMetrics(line)
-            let width = CTLineGetTypographicBounds(line, nil, nil, nil)
-            context.textPosition = CGPoint(x: area.midX - width / 2, y: baselineTop - metrics.ascent)
-            CTLineDraw(line, context)
-            baselineTop -= lineHeight
+    /// Draws text centered in `area`, laid out by `LabelLayout`.
+    private func drawLabel(_ text: String, in area: Rect, on canvas: inout Canvas, color: Color = .white, shadow: Bool = false) {
+        let mask = Self.labelMask(text, in: area, width: canvas.width, height: canvas.height)
+        if shadow {
+            // Keeps the label readable on bright images.
+            canvas.fill(mask.blurred(radius: 1).shifted(dx: 0, dy: 1), Color(gray: 0, alpha: 0.8))
         }
+        canvas.fill(mask, color)
     }
 
-    /// Lines to draw for a label; never more than two, each no wider than `width`.
-    static func layoutLabel(_ text: String, width: CGFloat, height: CGFloat, color: CGColor = CGColor(gray: 1, alpha: 1)) -> [CTLine] {
-        var size = maxFontSize
-        while true {
-            let attributed = attributedLabel(text, size: size, color: color)
-            let lines = wrap(attributed, width: width)
-            let lineHeight = lines.first.map { lineMetrics($0).height } ?? 0
-            if lines.count <= 2, lineHeight * CGFloat(lines.count) <= height, lines.allSatisfy({ lineWidth($0) <= width }) {
-                return lines
+    static func labelMask(_ text: String, in area: Rect, width: Int, height: Int) -> Mask {
+        let layout = LabelLayout(text, width: area.width, height: area.height)
+        var mask = Mask(width: width, height: height)
+        let top = area.midY - layout.lineHeight * Double(layout.lines.count) / 2
+        for (index, line) in layout.lines.enumerated() {
+            let baseline = top + Double(index) * layout.lineHeight + layout.ascent
+            let left = area.midX - line.width / 2
+            for glyph in line.glyphs {
+                layout.font.draw(glyph.glyph, scale: layout.scale, x: left + glyph.x, y: baseline, into: &mask)
             }
-            if size <= minFontSize {
-                return truncate(attributed, lines: lines, width: width, maxLines: max(1, min(2, Int(height / max(lineHeight, 1)))))
-            }
-            size -= 1
         }
+        return mask
     }
+}
 
-    private static func attributedLabel(_ text: String, size: CGFloat, color: CGColor) -> NSAttributedString {
-        let font = NSFont.systemFont(ofSize: size, weight: .semibold)
-        return NSAttributedString(string: text, attributes: [
-            NSAttributedString.Key(kCTFontAttributeName as String): font,
-            NSAttributedString.Key(kCTForegroundColorAttributeName as String): color,
-        ])
-    }
-
-    private static func wrap(_ attributed: NSAttributedString, width: CGFloat) -> [CTLine] {
-        let typesetter = CTTypesetterCreateWithAttributedString(attributed)
-        var lines: [CTLine] = []
-        var start = 0
-        while start < attributed.length {
-            let count = CTTypesetterSuggestLineBreak(typesetter, start, width)
-            guard count > 0 else { break }
-            lines.append(CTTypesetterCreateLine(typesetter, CFRange(location: start, length: count)))
-            start += count
+extension RGBAImage {
+    /// Rotated 180 degrees (both axes flipped), as the device expects.
+    func rotated180() -> RGBAImage {
+        var bytes = [UInt8](repeating: 0, count: pixels.count)
+        let count = width * height
+        for i in 0 ..< count {
+            let j = (count - 1 - i) * 4
+            bytes[j ..< j + 4] = pixels[i * 4 ..< i * 4 + 4]
         }
-        return lines
-    }
-
-    private static func truncate(_ attributed: NSAttributedString, lines: [CTLine], width: CGFloat, maxLines: Int) -> [CTLine] {
-        var kept = Array(lines.prefix(maxLines - 1))
-        let usedLength = kept.reduce(0) { $0 + CTLineGetStringRange($1).length }
-        let rest = attributed.attributedSubstring(from: NSRange(location: usedLength, length: attributed.length - usedLength))
-        let restLine = CTLineCreateWithAttributedString(rest)
-        let ellipsisAttributes = attributed.attributes(at: 0, effectiveRange: nil)
-        let ellipsis = CTLineCreateWithAttributedString(NSAttributedString(string: "\u{2026}", attributes: ellipsisAttributes))
-        kept.append(CTLineCreateTruncatedLine(restLine, Double(width), .end, ellipsis) ?? ellipsis)
-        return kept
-    }
-
-    static func lineWidth(_ line: CTLine) -> CGFloat {
-        CTLineGetTypographicBounds(line, nil, nil, nil) - CTLineGetTrailingWhitespaceWidth(line)
-    }
-
-    private static func lineMetrics(_ line: CTLine) -> (ascent: CGFloat, height: CGFloat) {
-        var ascent: CGFloat = 0, descent: CGFloat = 0, leading: CGFloat = 0
-        CTLineGetTypographicBounds(line, &ascent, &descent, &leading)
-        return (ascent, ascent + descent + leading)
-    }
-
-    // MARK: - Output
-
-    static func makeContext() -> CGContext {
-        CGContext(data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
-                  space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-    }
-
-    /// Rotates 180 degrees (both axes flipped), as the device expects.
-    static func flipped(_ image: CGImage) -> CGImage {
-        let context = makeContext()
-        context.translateBy(x: CGFloat(size), y: CGFloat(size))
-        context.scaleBy(x: -1, y: -1)
-        context.draw(image, in: CGRect(x: 0, y: 0, width: size, height: size))
-        return context.makeImage()!
-    }
-
-    static func encodeJPEG(_ image: CGImage) -> Data {
-        let data = NSMutableData()
-        let destination = CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil)!
-        CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 0.9] as CFDictionary)
-        CGImageDestinationFinalize(destination)
-        return data as Data
+        return RGBAImage(width: width, height: height, pixels: bytes)
     }
 }

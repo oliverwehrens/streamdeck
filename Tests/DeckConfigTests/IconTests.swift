@@ -8,6 +8,18 @@ private let directory = URL(fileURLWithPath: "/Users/test/.config/streamdeck")
     #expect(Icon(configValue: "sf:lightbulb.fill", relativeTo: directory) == .symbol("lightbulb.fill"))
 }
 
+@Test func materialSymbolIcon() {
+    #expect(Icon(configValue: "ms:play_arrow", relativeTo: directory) == .material(name: "play_arrow", filled: false))
+}
+
+@Test func filledMaterialSymbolIcon() {
+    #expect(Icon(configValue: "ms:lightbulb.fill", relativeTo: directory) == .material(name: "lightbulb", filled: true))
+}
+
+@Test func emptyMaterialSymbolNameIsPassedToRenderer() {
+    #expect(Icon(configValue: "ms:", relativeTo: directory) == .material(name: "", filled: false))
+}
+
 @Test func tildeIconExpandsToHome() {
     #expect(Icon(configValue: "~/x.png", relativeTo: directory) == .file(NSHomeDirectory() + "/x.png"))
 }

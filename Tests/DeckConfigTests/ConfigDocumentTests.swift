@@ -194,7 +194,7 @@ private func generateDocument(_ random: inout SeededRandom) -> ConfigDocument {
         var keys: [Int: KeyDocument] = [:]
         for index in (0 ..< DeckConfig.keyCount).shuffled(using: &random).prefix(Int.random(in: 0 ... 6, using: &random)) {
             keys[index] = KeyDocument(
-                icon: maybe { pick(["sf:terminal", "icons/zoom.png", "~/icons/x.png", "/tmp/a b.png"]) },
+                icon: maybe { pick(["sf:terminal", "ms:play_arrow", "ms:lightbulb.fill", "icons/zoom.png", "~/icons/x.png", "/tmp/a b.png"]) },
                 image: maybe { pick(["art/cat.jpg", "~/Pictures/a b.png", "/tmp/x.png"]) },
                 label: maybe { pick(texts) },
                 background: maybe { String(format: "#%06X", Int.random(in: 0 ... 0xFFFFFF, using: &random)) },

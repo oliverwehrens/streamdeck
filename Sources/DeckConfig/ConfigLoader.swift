@@ -174,6 +174,8 @@ private struct Parser {
         if let value = map["image"], let text = string(value, what: "image", page: page, key: index) {
             if text.hasPrefix("sf:") {
                 fail("image '\(text)' must be an image file; SF Symbols belong in icon", value, page: page, key: index)
+            } else if text.hasPrefix("ms:") {
+                fail("image '\(text)' must be an image file; Material Symbols belong in icon", value, page: page, key: index)
             } else {
                 key.image = resolvePath(text, relativeTo: baseDirectory)
             }

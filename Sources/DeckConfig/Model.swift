@@ -46,16 +46,29 @@ public struct KeyDefinition: Equatable, Sendable {
 }
 
 public enum Icon: Equatable, Sendable {
+    /// SF Symbol; drawn only on macOS.
     case symbol(String)
+    /// Material Symbol, outlined or filled; drawn on every platform.
+    case material(name: String, filled: Bool)
     /// Absolute path, already resolved against the config directory.
     case file(String)
 }
 
 extension Icon {
-    /// Parses an icon as written in the config: `sf:<name>`, or an image path.
+    /// Parses an icon as written in the config: `ms:<name>`, `ms:<name>.fill`, `sf:<name>`, or an image path.
     /// `~` expands to the home directory; relative paths resolve against `directory`.
+    /// Symbol names aren't checked here; an unknown one is reported when the key is drawn.
     public init(configValue text: String, relativeTo directory: URL) {
-        self = text.hasPrefix("sf:") ? .symbol(String(text.dropFirst(3))) : .file(resolvePath(text, relativeTo: directory))
+        if text.hasPrefix("ms:") {
+            let name = text.dropFirst(3)
+            self = name.hasSuffix(".fill")
+                ? .material(name: String(name.dropLast(5)), filled: true)
+                : .material(name: String(name), filled: false)
+        } else if text.hasPrefix("sf:") {
+            self = .symbol(String(text.dropFirst(3)))
+        } else {
+            self = .file(resolvePath(text, relativeTo: directory))
+        }
     }
 }
 

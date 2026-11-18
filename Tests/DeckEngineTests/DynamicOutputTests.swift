@@ -56,6 +56,10 @@ private func reason(_ stdout: String) -> String? {
     #expect(parse(#"{"icon":"sf:no.such.symbol"}"#) == .success(DynamicOutput(icon: .symbol("no.such.symbol"))))
 }
 
+@Test func jsonMaterialSymbolIcon() {
+    #expect(parse(#"{"icon":"ms:lightbulb.fill"}"#) == .success(DynamicOutput(icon: .material(name: "lightbulb", filled: true))))
+}
+
 // MARK: - Rejected
 
 @Test func invalidColorRejected() {

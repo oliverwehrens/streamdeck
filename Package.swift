@@ -11,25 +11,27 @@ let package = Package(
     targets: [
         // Portable: builds and tests on macOS and Linux.
         .target(name: "DeckSupport"),
+        .target(name: "CStb"),
         .target(name: "DeckHID"),
         .target(name: "DeckConfig", dependencies: ["Yams"]),
         .target(name: "DeckEngine", dependencies: ["DeckSupport", "DeckHID", "DeckConfig"]),
+        .target(name: "DeckRender", dependencies: ["CStb", "DeckConfig", "DeckEngine"]),
         .testTarget(name: "DeckSupportTests", dependencies: ["DeckSupport"]),
         .testTarget(name: "DeckHIDTests", dependencies: ["DeckHID"]),
         .testTarget(name: "DeckConfigTests", dependencies: ["DeckConfig", "DeckSupport"]),
         .testTarget(name: "DeckEngineTests", dependencies: ["DeckEngine", "DeckSupport"]),
-    ]
+        .testTarget(name: "DeckRenderTests", dependencies: ["DeckRender", "DeckEngine", "CStb"]),
+    ],
+    cLanguageStandard: .c2x
 )
 
 #if os(macOS)
-// macOS only: AppKit rendering, IOKit and CGEvent platform code, and the menu-bar app.
+// macOS only: IOKit, CGEvent and SF Symbol platform code, and the menu-bar app.
 package.products.append(.executable(name: "StreamDeckApp", targets: ["StreamDeckApp"]))
 package.targets.append(contentsOf: [
-    .target(name: "DeckRender", dependencies: ["DeckConfig", "DeckEngine"]),
-    .target(name: "DeckPlatformMac", dependencies: ["DeckHID", "DeckConfig", "DeckEngine"]),
+    .target(name: "DeckPlatformMac", dependencies: ["DeckHID", "DeckConfig", "DeckEngine", "DeckRender"]),
     .executableTarget(name: "StreamDeckApp", dependencies: ["DeckEngine", "DeckHID", "DeckConfig", "DeckRender", "DeckPlatformMac"]),
-    .testTarget(name: "DeckRenderTests", dependencies: ["DeckRender", "DeckEngine"]),
-    .testTarget(name: "DeckPlatformMacTests", dependencies: ["DeckPlatformMac", "DeckEngine", "DeckConfig"]),
+    .testTarget(name: "DeckPlatformMacTests", dependencies: ["DeckPlatformMac", "DeckEngine", "DeckConfig", "DeckRender"]),
     .testTarget(name: "StreamDeckAppTests", dependencies: ["StreamDeckApp", "DeckConfig", "DeckEngine"]),
 ])
 #endif

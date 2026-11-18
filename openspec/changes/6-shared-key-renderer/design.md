@@ -57,7 +57,7 @@ stb_truetype only reads the legacy `kern` table, and Inter keeps its kerning in 
 
 Material Symbols ships as one variable font, and its icons are named through GSUB ligatures. stb_truetype supports neither axis variation nor GSUB. So:
 
-- `scripts/make-material-fonts.sh` runs fontTools in a throwaway Docker container. It instantiates the pinned upstream `MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].ttf` at `wght=400, GRAD=0, opsz=48` with `FILL=0` and `FILL=1`. Then it subsets both to the codepoints in the matching `.codepoints` file and drops the layout tables. The two TTFs and the `.codepoints` file are committed and embedded. `opsz=48` is the design size closest to a 48 px icon box.
+- `scripts/make-fonts.sh` runs fontTools in a throwaway Docker container. It instantiates the pinned upstream `MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].ttf` at `wght=400, GRAD=0, opsz=48` with `FILL=0` and `FILL=1`. Then it subsets both to the codepoints in the matching `.codepoints` file and drops the layout tables. The two TTFs and the `.codepoints` file are committed and embedded. `opsz=48` is the design size closest to a 48 px icon box.
 - `MaterialSymbols.codepoint(for:)` parses the embedded `.codepoints` file (`name hex` per line) into a dictionary on first use. `MaterialSymbols.contains(_:)` is public, for the editor.
 - The glyph is drawn white with its em square scaled to the icon box's shorter side and centered on the box. Centering uses the em square, not the ink bounds, so all icons keep the same optical size, as the font intends.
 
