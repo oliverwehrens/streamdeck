@@ -1,6 +1,6 @@
 import IOKit
 import Testing
-@testable import DeckHID
+@testable import DeckPlatformMac
 
 @Test func namesElgatoAppWhenRunning() {
     let message = OpenFailure.message(code: kIOReturnExclusiveAccess, elgatoRunning: true)

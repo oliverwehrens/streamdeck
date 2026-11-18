@@ -1,5 +1,10 @@
+import DeckSupport
 import Foundation
-import os
+#if canImport(Glibc)
+import Glibc
+#elseif canImport(Musl)
+import Musl
+#endif
 
 /// Runs commands through the user's login shell, so PATH matches their terminal.
 public struct ShellRunner: CommandRunner {
@@ -14,12 +19,18 @@ public struct ShellRunner: CommandRunner {
             let shell = String(cString: path)
             if FileManager.default.isExecutableFile(atPath: shell) { return shell }
         }
+        #if os(macOS)
         return "/bin/zsh"
+        #else
+        return "/bin/sh"
+        #endif
     }
 
     public func run(_ command: String, timeout: TimeInterval?) async -> CommandResult {
+        // Waiting for the process blocks, so it gets its own thread. On Linux, Swift tasks share the
+        // global dispatch pool, and blocking that pool stalls every task in the process.
         await withCheckedContinuation { continuation in
-            DispatchQueue.global().async {
+            Thread.detachNewThread {
                 continuation.resume(returning: runBlocking(command, timeout: timeout))
             }
         }
@@ -39,7 +50,7 @@ public struct ShellRunner: CommandRunner {
             return CommandResult(exitCode: -1, stderr: "cannot start \(shell): \(error.localizedDescription)")
         }
 
-        let timedOut = OSAllocatedUnfairLock(initialState: false)
+        let timedOut = Locked(initialState: false)
         if let timeout {
             DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
                 guard process.isRunning else { return }
@@ -52,12 +63,14 @@ public struct ShellRunner: CommandRunner {
         }
 
         // Drain both pipes concurrently so a chatty command cannot fill a pipe and block.
-        let output = OSAllocatedUnfairLock(initialState: (out: Data(), err: Data()))
+        let output = Locked(initialState: (out: Data(), err: Data()))
         let group = DispatchGroup()
         for (pipe, isOut) in [(stdout, true), (stderr, false)] {
-            DispatchQueue.global().async(group: group) {
+            group.enter()
+            Thread.detachNewThread {
                 let data = (try? pipe.fileHandleForReading.readToEnd()) ?? Data()
                 output.withLock { if isOut { $0.out = data } else { $0.err = data } }
+                group.leave()
             }
         }
         process.waitUntilExit()

@@ -1,5 +1,6 @@
 import CoreText
 import DeckConfig
+import DeckEngine
 import Foundation
 import ImageIO
 import Testing
@@ -208,4 +209,12 @@ private func fill(_ context: CGContext, _ rect: CGRect, red: CGFloat, green: CGF
     #expect(isClose(pixels[2, 2], 0, 0, 255))
     #expect(all.contains { $0.r > 200 && $0.g > 200 })  // label drawn
     #expect(!all.contains { isClose($0, 153, 153, 153, tolerance: 20) })  // no placeholder
+}
+
+@Test func portRendersLikeKeyRenderer() {
+    let appearance = KeyAppearance(background: .black, icon: .file("/nope.png"), label: "Port")
+    let viaPort = AppKitKeyRenderer().render(appearance)
+    let direct = KeyRenderer.render(appearance)
+    #expect(viaPort.jpeg == direct.jpeg)
+    #expect(viaPort.problems == direct.problems)
 }

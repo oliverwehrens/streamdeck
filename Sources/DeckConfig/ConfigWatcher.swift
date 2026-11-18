@@ -1,4 +1,3 @@
-import CoreServices
 import Foundation
 
 /// Watches the config directory and reloads on any change, including atomic rename-saves
@@ -12,7 +11,7 @@ public final class ConfigWatcher: @unchecked Sendable {
     public let url: URL
     private let onUpdate: @Sendable (Update) -> Void
     private let queue = DispatchQueue(label: "de.wehrens.streamdeck.config")
-    private var stream: FSEventStreamRef?
+    private var monitor: DirectoryMonitor?
 
     // Accessed only on `queue`.
     private var current: DeckConfig?
@@ -30,30 +29,17 @@ public final class ConfigWatcher: @unchecked Sendable {
     /// Loads once, then watches for changes.
     public func start() {
         reload()
-        var context = FSEventStreamContext(
-            version: 0, info: Unmanaged.passUnretained(self).toOpaque(),
-            retain: nil, release: nil, copyDescription: nil
-        )
-        let callback: FSEventStreamCallback = { _, info, _, _, _, _ in
-            Unmanaged<ConfigWatcher>.fromOpaque(info!).takeUnretainedValue().reloadOnQueue()
+        let monitor = DirectoryMonitor(directory: url.deletingLastPathComponent(), queue: queue) { [weak self] in
+            self?.reloadOnQueue()
         }
-        let directory = url.deletingLastPathComponent().path as CFString
-        guard let stream = FSEventStreamCreate(
-            kCFAllocatorDefault, callback, &context, [directory] as CFArray,
-            FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 0.2,
-            FSEventStreamCreateFlags(kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer)
-        ) else { return }
-        FSEventStreamSetDispatchQueue(stream, queue)
-        FSEventStreamStart(stream)
-        self.stream = stream
+        // If watching cannot start, the loaded config stays and later changes are not picked up.
+        guard monitor.start() else { return }
+        self.monitor = monitor
     }
 
     public func stop() {
-        guard let stream else { return }
-        FSEventStreamStop(stream)
-        FSEventStreamInvalidate(stream)
-        FSEventStreamRelease(stream)
-        self.stream = nil
+        monitor?.stop()
+        monitor = nil
     }
 
     /// Reloads now, with the same rules as a change on disk.

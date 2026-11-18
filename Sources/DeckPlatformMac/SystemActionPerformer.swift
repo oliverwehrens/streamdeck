@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import DeckConfig
+import DeckEngine
 
 /// Performs actions against the real system: shell, NSWorkspace, synthesized key events.
 public struct SystemActionPerformer: ActionPerformer {
@@ -21,7 +22,7 @@ public struct SystemActionPerformer: ActionPerformer {
     public func perform(_ action: Action) async -> ActionResult {
         switch action {
         case let .run(command):
-            return Self.describe(await commands.run(command, timeout: nil), command: command)
+            return ActionResult(await commands.run(command, timeout: nil), command: command)
         case let .open(target):
             return await open(target)
         case let .keys(combo):
@@ -42,13 +43,6 @@ public struct SystemActionPerformer: ActionPerformer {
         case .page:
             return .succeeded
         }
-    }
-
-    static func describe(_ result: CommandResult, command: String) -> ActionResult {
-        guard !result.succeeded else { return .succeeded }
-        let stderr = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
-        let detail = stderr.isEmpty ? "" : ": \(stderr.split(separator: "\n").suffix(3).joined(separator: " / "))"
-        return .failed("'\(command)' exited with status \(result.exitCode)\(detail)")
     }
 
     // MARK: - Open

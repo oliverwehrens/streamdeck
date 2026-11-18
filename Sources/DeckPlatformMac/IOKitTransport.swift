@@ -1,3 +1,4 @@
+import DeckHID
 import Foundation
 import IOKit.hid
 
@@ -79,7 +80,7 @@ public final class IOKitTransport: DeckTransport, @unchecked Sendable {
               let own = IOHIDDeviceCreate(kCFAllocatorDefault, IOHIDDeviceGetService(matched)) else { return }
         let result = IOHIDDeviceOpen(own, IOOptionBits(kIOHIDOptionsTypeNone))
         guard result == kIOReturnSuccess else {
-            continuation.yield(.openFailed(result))
+            continuation.yield(.openFailed(OpenFailure.message(code: result, elgatoRunning: OpenFailure.elgatoAppIsRunning())))
             return
         }
         let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: Self.inputBufferSize)

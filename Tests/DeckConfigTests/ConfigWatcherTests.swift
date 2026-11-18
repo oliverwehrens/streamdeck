@@ -1,10 +1,10 @@
+import DeckSupport
 import Foundation
-import os
 import Testing
 @testable import DeckConfig
 
 private final class Recorder: Sendable {
-    let updates = OSAllocatedUnfairLock<[ConfigWatcher.Update]>(initialState: [])
+    let updates = Locked<[ConfigWatcher.Update]>(initialState: [])
 
     var labels: [String] {
         updates.withLock { $0.compactMap { if case let .loaded(c) = $0 { c.pages["home"]?.keys[0]?.label } else { nil } } }
@@ -71,4 +71,27 @@ func reloadsValidAndKeepsLastValid() async throws {
     try await recorder.wait { recorder.failures == 1 }
     #expect(recorder.failures == 1)
     #expect(watcher.config == nil)
+}
+
+@Test(.timeLimit(.minutes(1)))
+func reloadsWhenAFileInANewSubdirectoryChanges() async throws {
+    let dir = try temporaryDirectory()
+    let url = dir.appendingPathComponent("config.yaml")
+    try config(label: "A").write(to: url, atomically: false, encoding: .utf8)
+
+    let recorder = Recorder()
+    let watcher = ConfigWatcher(url: url) { update in recorder.updates.withLock { $0.append(update) } }
+    watcher.start()
+    defer { watcher.stop() }
+    try await recorder.wait { recorder.labels == ["A"] }
+
+    // Creating the directory reloads too; let that settle before the edit.
+    let icons = dir.appendingPathComponent("icons/nested")
+    try FileManager.default.createDirectory(at: icons, withIntermediateDirectories: true)
+    try await Task.sleep(for: .milliseconds(600))
+    let before = recorder.updates.withLock { $0.count }
+
+    try Data([1, 2, 3]).write(to: icons.appendingPathComponent("icon.png"))
+    try await recorder.wait { recorder.updates.withLock { $0.count } > before }
+    #expect(recorder.updates.withLock { $0.count } > before)
 }

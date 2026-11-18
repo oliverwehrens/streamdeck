@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import DeckConfig
 import DeckEngine
+import DeckPlatformMac
 
 /// Turns a pressed key into a combo for the Keystroke action.
 enum KeyRecorder {

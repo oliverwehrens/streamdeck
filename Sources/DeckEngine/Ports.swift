@@ -9,6 +9,19 @@ public enum ActionResult: Equatable, Sendable {
     case needsAccessibility
 }
 
+extension ActionResult {
+    /// The result of a `run` action: succeeded, or the exit status with the last lines of stderr.
+    public init(_ result: CommandResult, command: String) {
+        guard !result.succeeded else {
+            self = .succeeded
+            return
+        }
+        let stderr = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+        let detail = stderr.isEmpty ? "" : ": \(stderr.split(separator: "\n").suffix(3).joined(separator: " / "))"
+        self = .failed("'\(command)' exited with status \(result.exitCode)\(detail)")
+    }
+}
+
 /// Performs run/open/keys/media actions. Page actions are handled by the engine.
 public protocol ActionPerformer: Sendable {
     func perform(_ action: Action) async -> ActionResult

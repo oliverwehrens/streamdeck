@@ -1,6 +1,5 @@
 import DeckConfig
 import DeckHID
-import DeckRender
 import Foundation
 
 /// Ties config, navigation, rendering, actions and the device together.
@@ -39,6 +38,7 @@ public final class DeckEngine {
     public var onEditorKeyPress: ((Int) -> Void)?
 
     private let transport: DeckTransport
+    private let renderer: any KeyRendering
     private let performer: ActionPerformer
     private let commands: CommandRunner
     /// Relative icon paths in dynamic output resolve against this.
@@ -62,9 +62,10 @@ public final class DeckEngine {
     private var dynamicTasks: [Int: Task<Void, Never>] = [:]
     private var problems: [Problem.Source: String] = [:]
 
-    public init(transport: DeckTransport, performer: ActionPerformer, commands: CommandRunner, configDirectory: URL,
-                ownBundleID: String, frontmostApp: String?) {
+    public init(transport: DeckTransport, renderer: any KeyRendering, performer: ActionPerformer, commands: CommandRunner,
+                configDirectory: URL, ownBundleID: String, frontmostApp: String?) {
         self.transport = transport
+        self.renderer = renderer
         self.performer = performer
         self.commands = commands
         self.configDirectory = configDirectory
@@ -87,7 +88,7 @@ public final class DeckEngine {
         cancelDynamicTasks()
         eventTask?.cancel()
         if connected {
-            let blank = KeyRenderer.render(.blank).jpeg
+            let blank = renderer.render(.blank).jpeg
             for key in 0 ..< DeckConfig.keyCount { transport.setImage(key: key, jpeg: blank) }
         }
         transport.stop()
@@ -174,8 +175,8 @@ public final class DeckEngine {
             pressed.removeAll()
             lastSent.removeAll()
             notify()
-        case let .openFailed(code):
-            problems[.device] = OpenFailure.message(code: code, elgatoRunning: OpenFailure.elgatoAppIsRunning())
+        case let .openFailed(message):
+            problems[.device] = message
             notify()
         case let .key(keyEvent):
             handleKey(keyEvent)
@@ -272,7 +273,7 @@ public final class DeckEngine {
             error: dynamicFailed.contains(key)
         )
         if definition == nil { appearance = .blank }
-        let rendered = KeyRenderer.render(appearance)
+        let rendered = renderer.render(appearance)
         problems[.icon(key: key)] = rendered.problems.isEmpty ? nil : "Key \(key): " + rendered.problems.joined(separator: "; ")
         if connected, lastSent[key] != rendered.jpeg {
             transport.setImage(key: key, jpeg: rendered.jpeg)

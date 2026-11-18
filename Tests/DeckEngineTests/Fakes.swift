@@ -1,7 +1,7 @@
 import DeckConfig
 import DeckHID
+import DeckSupport
 import Foundation
-import os
 @testable import DeckEngine
 
 let testConfigDirectory = URL(fileURLWithPath: "/Users/test/.config/streamdeck")
@@ -9,7 +9,7 @@ let testConfigDirectory = URL(fileURLWithPath: "/Users/test/.config/streamdeck")
 final class FakeTransport: DeckTransport, @unchecked Sendable {
     let events: AsyncStream<DeviceEvent>
     let continuation: AsyncStream<DeviceEvent>.Continuation
-    private let lock = OSAllocatedUnfairLock<(images: [(key: Int, jpeg: Data)], brightness: [Int])>(initialState: ([], []))
+    private let lock = Locked<(images: [(key: Int, jpeg: Data)], brightness: [Int])>(initialState: ([], []))
     private(set) var stopped = false
 
     init() {
@@ -29,7 +29,7 @@ final class FakeTransport: DeckTransport, @unchecked Sendable {
 }
 
 final class FakePerformer: ActionPerformer, @unchecked Sendable {
-    private let lock = OSAllocatedUnfairLock<[Action]>(initialState: [])
+    private let lock = Locked<[Action]>(initialState: [])
     let result: ActionResult
 
     init(result: ActionResult = .succeeded) {
@@ -52,7 +52,7 @@ final class FakeCommands: CommandRunner, @unchecked Sendable {
         var maxConcurrent: [String: Int] = [:]
     }
 
-    private let lock = OSAllocatedUnfairLock(initialState: State())
+    private let lock = Locked(initialState: State())
     let handler: @Sendable (String, Int) async -> CommandResult
 
     init(handler: @escaping @Sendable (String, Int) async -> CommandResult) {
@@ -100,3 +100,18 @@ let germanLayout: TableKeyboardLayout = {
     codes["#"] = 0x2A
     return TableKeyboardLayout(name: "German", codes: codes)
 }()
+
+/// Encodes the appearance as bytes, so equal appearances give equal images without real rendering.
+/// Reports missing icon and image files with the real renderer's messages.
+struct FakeRenderer: KeyRendering {
+    func render(_ appearance: KeyAppearance) -> RenderedKey {
+        var problems: [String] = []
+        if case let .file(path) = appearance.icon, !FileManager.default.fileExists(atPath: path) {
+            problems.append("icon file not found or unreadable: \(path)")
+        }
+        if let path = appearance.image, !FileManager.default.fileExists(atPath: path) {
+            problems.append("image file not found or unreadable: \(path)")
+        }
+        return RenderedKey(jpeg: Data(String(describing: appearance).utf8), problems: problems)
+    }
+}
