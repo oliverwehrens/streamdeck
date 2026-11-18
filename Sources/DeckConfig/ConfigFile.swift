@@ -16,7 +16,16 @@ public enum ConfigFile {
         return true
     }
 
-    public static let starter = """
+    /// The starter config for this platform.
+    public static var starter: String {
+        #if os(macOS)
+        macStarter
+        #else
+        linuxStarter
+        #endif
+    }
+
+    public static let macStarter = """
     # Stream Deck configuration. Saved changes apply within a second.
     # Keys are numbered 0-14, left to right, top to bottom:
     #    0  1  2  3  4
@@ -50,6 +59,41 @@ public enum ConfigFile {
           6: { icon: sf:speaker.slash.fill, action: { media: mute } }
           7: { icon: sf:speaker.plus.fill, action: { media: volumeup } }
           14: { icon: sf:arrow.uturn.left, label: Back, action: { page: back } }
+
+    """
+
+    /// Linux: Material Symbols only (SF Symbols are macOS-only), and actions that work on a Steam Machine.
+    public static let linuxStarter = """
+    # Stream Deck configuration. Saved changes apply within a second.
+    # Keys are numbered 0-14, left to right, top to bottom:
+    #    0  1  2  3  4
+    #    5  6  7  8  9
+    #   10 11 12 13 14
+    # Icons: ms:<name> from https://fonts.google.com/icons (add .fill for the filled style).
+    # Full reference: docs/config.md in the project repository.
+
+    brightness: 70
+    default_page: home
+
+    pages:
+      home:
+        keys:
+          0: { icon: ms:storefront, label: Store, action: { open: "steam://store" } }
+          1: { icon: ms:sports_esports, label: Library, action: { open: "steam://nav/games" } }
+          2: { icon: ms:photo_camera, label: Screenshot, action: { keys: f12 } }
+          4: { icon: ms:music_note, label: Media, action: { page: media } }
+          10: { icon: ms:public, label: Web, action: { open: "https://store.steampowered.com" } }
+          14: { dynamic: { run: "date +%H:%M", every: 10s } }
+
+      media:
+        keys:
+          0: { icon: ms:skip_previous, action: { media: previous } }
+          1: { icon: ms:play_pause, action: { media: playpause } }
+          2: { icon: ms:skip_next, action: { media: next } }
+          5: { icon: ms:volume_down, action: { media: volumedown } }
+          6: { icon: ms:volume_off, action: { media: mute } }
+          7: { icon: ms:volume_up, action: { media: volumeup } }
+          14: { icon: ms:arrow_back, label: Back, action: { page: back } }
 
     """
 }

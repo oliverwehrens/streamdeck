@@ -123,6 +123,12 @@ Logging: `onStatusChange` diffs the problem list against the previous one and wr
 
 `scripts/build-linux.sh` runs in the same pinned `swift:6.4.2` image as `test-linux.sh`. It installs the matching Static Linux SDK into the build cache volume once (`swift sdk install <url> --checksum <sha>`, with the URL and checksum pinned in the script), then runs `swift build -c release --swift-sdk x86_64-swift-linux-musl --product streamdeckd`. The output is copied to `build/linux/streamdeckd`. A check in the script runs `file` on the binary and fails unless it says "statically linked".
 
+Found while implementing:
+
+- **No kernel headers in the musl sysroot.** The Static SDK ships musl's headers but not the kernel's uapi headers (`linux/input.h`, `linux/uinput.h`, `linux/hidraw.h`). `CLinux` therefore defines the input event codes, `struct uinput_setup`, `struct input_event` and the ioctl numbers itself, from the stable kernel ABI, using `_IOC`/`_IOW` from `<sys/ioctl.h>`. Both builds use these definitions. `_Static_assert`s check the struct sizes. A test compares the key codes with `/usr/include/linux/input-event-codes.h` where that header exists (the glibc test image), and the uinput test checks the ioctls against a real `/dev/uinput`.
+- **Yams 5.x doesn't compile against the musl SDK** (`ambiguous use of 'DBL_DECIMAL_DIG'`). Yams 6.2.2 fixes it (#477). Its only breaking change since 5.4.0 is in `YamlError.duplicatedKeysInMapping`, which `ConfigLoader` doesn't match on. `Package.swift` now requires `from: "6.2.2"`. That also changes the Mac build, so group 9 includes a Mac check.
+- The new build backend puts products under `out/Products/…`. The script asks `swift build --show-bin-path` instead of hard-coding the path. `-Xlinker --strip-all` takes the binary from 138 MB to 57 MB. Most of what's left is Foundation's ICU data and the embedded fonts.
+
 `DeckConfig` and `DeckEngine` already import `Musl` where they import `Glibc`. `DeckPlatformLinux` and `streamdeckd` follow the same pattern. Tests run against glibc (`test-linux.sh`), and the release build is musl. The static build is a separate CI-less step that the task list runs.
 
 *Alternative:* a dynamic glibc build. SteamOS ships glibc, but not the Swift runtime, and its glibc version moves with OS updates.

@@ -37,6 +37,12 @@ public final class DeckEngine {
     /// While set, a key-down calls this instead of running the key's action.
     public var onEditorKeyPress: ((Int) -> Void)?
 
+    /// Called when the status key is pressed. Only with `showsProblemsOnDeck`.
+    public var onStatusKeyPress: (() -> Void)?
+
+    /// The key that shows problems no visible key can show.
+    public nonisolated static let statusKey = 14
+
     private let transport: DeckTransport
     private let renderer: any KeyRendering
     private let performer: ActionPerformer
@@ -44,6 +50,8 @@ public final class DeckEngine {
     /// Relative icon paths in dynamic output resolve against this.
     private let configDirectory: URL
     private let ownBundleID: String
+    /// Headless use: error dots for key problems, and the status key for the rest.
+    private let showsProblemsOnDeck: Bool
 
     private var config: DeckConfig?
     private var navigation: Navigation?
@@ -63,7 +71,7 @@ public final class DeckEngine {
     private var problems: [Problem.Source: String] = [:]
 
     public init(transport: DeckTransport, renderer: any KeyRendering, performer: ActionPerformer, commands: CommandRunner,
-                configDirectory: URL, ownBundleID: String, frontmostApp: String?) {
+                configDirectory: URL, ownBundleID: String, frontmostApp: String?, showsProblemsOnDeck: Bool = false) {
         self.transport = transport
         self.renderer = renderer
         self.performer = performer
@@ -71,6 +79,7 @@ public final class DeckEngine {
         self.configDirectory = configDirectory
         self.ownBundleID = ownBundleID
         self.frontmostApp = frontmostApp
+        self.showsProblemsOnDeck = showsProblemsOnDeck
     }
 
     /// Starts consuming device events.
@@ -105,7 +114,8 @@ public final class DeckEngine {
         // An identical config (e.g. an editor preview) must not restart dynamic keys.
         if unchanged {
             applyBrightness()
-            notify()
+            // Cleared action problems take their error dots with them.
+            if showsProblemsOnDeck { renderAll() } else { notify() }
             return
         }
         if navigation == nil {
@@ -188,6 +198,10 @@ public final class DeckEngine {
             if event.edge == .down { onEditorKeyPress(event.key) }
             return
         }
+        if event.key == Self.statusKey, statusKeyLabel != nil {
+            if event.edge == .down { onStatusKeyPress?() }
+            return
+        }
         guard let page = displayedPage, let action = currentPageKeys[event.key]?.action else { return }
         switch event.edge {
         case .down:
@@ -224,7 +238,11 @@ public final class DeckEngine {
         case .needsAccessibility:
             problems[.permission] = Self.accessibilityMessage
         }
-        notify()
+        if showsProblemsOnDeck, page == displayedPage {
+            render(key: key)
+        } else {
+            notify()
+        }
     }
 
     public static let accessibilityMessage = "Keystroke and media keys need Accessibility permission."
@@ -262,6 +280,15 @@ public final class DeckEngine {
     }
 
     private func render(key: Int, notifyAfter: Bool = true) {
+        if key == Self.statusKey {
+            shownStatusKeyLabel = statusKeyLabel
+            if let label = shownStatusKeyLabel {
+                problems[.icon(key: key)] = nil
+                send(renderer.render(Self.statusKeyAppearance(label: label)), to: key)
+                if notifyAfter { notify() }
+                return
+            }
+        }
         let definition = currentPageKeys[key]
         let output = dynamicOutputs[key]
         var appearance = KeyAppearance(
@@ -270,16 +297,56 @@ public final class DeckEngine {
             image: Self.image(output?.image, configured: definition?.image),
             label: output?.label ?? definition?.label,
             pressed: pressed.contains(key) && definition?.action != nil,
-            error: dynamicFailed.contains(key)
+            error: dynamicFailed.contains(key) || (showsProblemsOnDeck && hasActionProblem(key: key))
         )
         if definition == nil { appearance = .blank }
-        let rendered = renderer.render(appearance)
+        var rendered = renderer.render(appearance)
+        if showsProblemsOnDeck, !rendered.problems.isEmpty, !appearance.error {
+            appearance.error = true
+            rendered = renderer.render(appearance)
+        }
         problems[.icon(key: key)] = rendered.problems.isEmpty ? nil : "Key \(key): " + rendered.problems.joined(separator: "; ")
+        send(rendered, to: key)
+        if notifyAfter { notify() }
+    }
+
+    private func send(_ rendered: RenderedKey, to key: Int) {
         if connected, lastSent[key] != rendered.jpeg {
             transport.setImage(key: key, jpeg: rendered.jpeg)
             lastSent[key] = rendered.jpeg
         }
-        if notifyAfter { notify() }
+    }
+
+    private func hasActionProblem(key: Int) -> Bool {
+        guard let page = displayedPage else { return false }
+        return problems[.action(page: page, key: key)] != nil
+    }
+
+    // MARK: - Status key
+
+    /// What the status key last showed; nil while key 14 shows its own content.
+    private var shownStatusKeyLabel: String?
+
+    /// The status key's label while there are problems no key shows, otherwise nil.
+    private var statusKeyLabel: String? {
+        guard showsProblemsOnDeck else { return nil }
+        let global = problems.keys.filter {
+            switch $0 {
+            case .config, .permission: true
+            case .device, .icon, .action, .dynamic: false
+            }
+        }
+        switch global.count {
+        case 0: return nil
+        case 1: return global[0] == .config ? "Config" : "Keys"
+        default: return "\(global.count) problems"
+        }
+    }
+
+    nonisolated static let statusKeyBackground = HexColor(red: 0xB0, green: 0x00, blue: 0x20)
+
+    nonisolated static func statusKeyAppearance(label: String) -> KeyAppearance {
+        KeyAppearance(background: statusKeyBackground, icon: .material(name: "error", filled: false), label: label)
     }
 
     private static func image(_ override: DynamicOutput.ImageOverride?, configured: String?) -> String? {
@@ -344,6 +411,7 @@ public final class DeckEngine {
     // MARK: - Status
 
     private func notify() {
+        if statusKeyLabel != shownStatusKeyLabel { render(key: Self.statusKey, notifyAfter: false) }
         let newStatus = Status(
             connected: connected,
             device: device,

@@ -59,3 +59,10 @@ func writesCanonicalText(input: String, text: String) throws {
     #expect(KeyCombo.namedKey(forKeyCode: 0x06) == nil)
     #expect(KeyCombo.namedKey(forKeyCode: 0x57) == nil)
 }
+
+@Test(arguments: ["super+l", "meta+l", "SUPER+L"])
+func superAndMetaMeanCmd(text: String) throws {
+    let combo = try KeyCombo.parse(text).get()
+    #expect(combo == (try KeyCombo.parse("cmd+l").get()))
+    #expect(combo.text == "cmd+l")
+}

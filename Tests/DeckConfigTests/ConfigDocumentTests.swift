@@ -152,8 +152,9 @@ private func expectRoundTrip(_ yaml: String) throws {
     #expect(try load(written).get() == load(yaml).get())
 }
 
-@Test func starterConfigRoundTrips() throws {
-    try expectRoundTrip(ConfigFile.starter)
+@Test(arguments: [ConfigFile.macStarter, ConfigFile.linuxStarter])
+func starterConfigRoundTrips(starter: String) throws {
+    try expectRoundTrip(starter)
 }
 
 @Test func documentedExampleRoundTrips() throws {

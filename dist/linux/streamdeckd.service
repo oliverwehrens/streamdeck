@@ -1,0 +1,13 @@
+[Unit]
+Description=Stream Deck daemon
+Documentation=https://github.com/oliverwehrens/streamdeck
+# WantedBy=default.target starts it with the user's systemd manager: on SteamOS that is at autologin.
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/streamdeckd
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

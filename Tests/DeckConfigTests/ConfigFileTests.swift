@@ -25,3 +25,24 @@ func temporaryDirectory() throws -> URL {
 @Test func defaultLocation() {
     #expect(ConfigFile.defaultURL.path.hasSuffix("/.config/streamdeck/config.yaml"))
 }
+
+@Test(arguments: [ConfigFile.macStarter, ConfigFile.linuxStarter])
+func bothStartersLoad(starter: String) throws {
+    let config = try ConfigLoader.load(yaml: starter, baseDirectory: temporaryDirectory()).get()
+    #expect(config.pages[config.defaultPage]?.keys.isEmpty == false)
+}
+
+@Test func starterMatchesPlatform() {
+    #if os(macOS)
+    #expect(ConfigFile.starter == ConfigFile.macStarter)
+    #else
+    #expect(ConfigFile.starter == ConfigFile.linuxStarter)
+    #endif
+}
+
+@Test func linuxStarterUsesNothingMacOnly() {
+    #expect(!ConfigFile.linuxStarter.contains("sf:"))
+    #expect(!ConfigFile.linuxStarter.contains(".app"))
+    #expect(!ConfigFile.linuxStarter.contains("fn+"))
+    #expect(!ConfigFile.linuxStarter.contains("say "))
+}

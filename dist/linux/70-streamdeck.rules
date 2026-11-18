@@ -1,0 +1,7 @@
+# Stream Deck daemon (streamdeckd): access for the user logged in on the seat, without root or group changes.
+
+# Stream Deck Original V2 over hidraw.
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0fd9", ATTRS{idProduct}=="006d", TAG+="uaccess"
+
+# Virtual keyboard for keys and media actions.
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"

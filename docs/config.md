@@ -104,12 +104,12 @@ Actions fire when the key goes down. Holding a key does not repeat the action.
 | Action | Example | Effect |
 |---|---|---|
 | `run` | `{ run: "say hello" }` | Runs the command in your login shell, in the background. A non-zero exit shows up in the menu. |
-| `open` | `{ open: "https://example.com" }` | Opens a URL, file, folder or app, like `open` in Terminal. |
-| `keys` | `{ keys: cmd+shift+m }` | Sends a key combination to the frontmost app. Needs Accessibility permission. |
-| `media` | `{ media: playpause }` | Sends a media key. Needs Accessibility permission. |
+| `open` | `{ open: "https://example.com" }` | Opens a URL, file, folder or app, like `open` in Terminal. On Linux, see [Linux](#linux). |
+| `keys` | `{ keys: cmd+shift+m }` | Sends a key combination to the frontmost app. Needs Accessibility permission on macOS. |
+| `media` | `{ media: playpause }` | Sends a media key. Needs Accessibility permission on macOS. |
 | `page` | `{ page: media }`, `{ page: back }` | Switches page, or returns to the previous one. |
 
-**Key combinations**: modifiers `cmd`, `shift`, `alt` (or `option`), `ctrl`, `fn`, plus exactly one key, joined by `+`. Key names:
+**Key combinations**: modifiers `cmd` (or `command`, `super`, `meta`), `shift`, `alt` (or `option`), `ctrl`, `fn`, plus exactly one key, joined by `+`. Key names:
 - letters `a`-`z` and digits `0`-`9`
 - `f1`-`f20`
 - `space`, `return`, `tab`, `esc`, `delete`, `forwarddelete`
@@ -121,6 +121,25 @@ Letters, digits and punctuation mean the character on your active keyboard layou
 A character your layout can't type without a modifier, such as `[` on a German layout, can't be sent. Pressing the key sends nothing and the menu shows `keyboard layout 'German' has no key for '['`.
 
 **Media keys**: `playpause`, `next`, `previous`, `volumeup`, `volumedown`, `mute`, `brightnessup`, `brightnessdown`.
+
+### Linux
+
+`streamdeckd` reads the same file, so one config can serve a Mac and a Steam Machine. Use `ms:` icons for keys both should show. A few actions work differently:
+
+- **`keys` and `media`** go to the focused window, including a game in SteamOS Game Mode, through a virtual keyboard. They need the udev rules from the install script, not a permission prompt. `cmd` is the Super key (the Windows or Steam logo key); `super` and `meta` are the same modifier and read better in a Linux config. `alt`, `ctrl` and `shift` are the left keys.
+- **`fn`** has no Linux equivalent. A config with `fn` still loads. Pressing such a key sends nothing, and the key shows the error dot.
+- **Keyboard layout.** Characters follow the system's XKB layout: the one gamescope uses in Game Mode, otherwise the one set with `localectl`. With a non-Latin layout, or when no layout is set, `us` applies.
+- **`open`** passes `steam://` URLs to the Steam client and everything else to `xdg-open`.
+
+Launch a game with its Steam AppID:
+
+```yaml
+0: { icon: ms:sports_esports, label: Dota 2, action: { open: "steam://rungameid/570" } }
+1: { icon: ms:storefront, label: Store, action: { open: "steam://store" } }
+2: { icon: ms:lock, label: Lock, action: { keys: super+l } }
+```
+
+The AppID is the number in the game's store page URL, `store.steampowered.com/app/<AppID>/…`. [SteamDB](https://steamdb.info) lists them too. A non-Steam game added to Steam gets a generated ID instead: in desktop mode, choose **Manage → Add desktop shortcut** for it and read the `steam://rungameid/…` URL from the shortcut file.
 
 ## Dynamic keys
 

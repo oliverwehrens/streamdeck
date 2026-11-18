@@ -30,7 +30,7 @@ final class FakeTransport: DeckTransport, @unchecked Sendable {
 
 final class FakePerformer: ActionPerformer, @unchecked Sendable {
     private let lock = Locked<[Action]>(initialState: [])
-    let result: ActionResult
+    var result: ActionResult
 
     init(result: ActionResult = .succeeded) {
         self.result = result

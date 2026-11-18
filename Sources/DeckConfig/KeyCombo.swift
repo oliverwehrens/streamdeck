@@ -78,7 +78,7 @@ public struct KeyCombo: Equatable, Sendable {
     }
 
     static let modifierAliases: [String: Modifier] = [
-        "command": .cmd, "option": .alt, "opt": .alt, "control": .ctrl,
+        "command": .cmd, "super": .cmd, "meta": .cmd, "option": .alt, "opt": .alt, "control": .ctrl,
     ]
 
     /// Characters with a config name and their US (ANSI) key codes from HIToolbox `Events.h` (kVK_ANSI_*).

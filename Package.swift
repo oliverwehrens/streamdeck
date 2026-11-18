@@ -6,7 +6,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [],
     dependencies: [
-        .package(url: "https://github.com/jpsim/Yams.git", from: "5.1.0"),
+        .package(url: "https://github.com/jpsim/Yams.git", from: "6.2.2"),
     ],
     targets: [
         // Portable: builds and tests on macOS and Linux.
@@ -33,5 +33,17 @@ package.targets.append(contentsOf: [
     .executableTarget(name: "StreamDeckApp", dependencies: ["DeckEngine", "DeckHID", "DeckConfig", "DeckRender", "DeckPlatformMac"]),
     .testTarget(name: "DeckPlatformMacTests", dependencies: ["DeckPlatformMac", "DeckEngine", "DeckConfig", "DeckRender"]),
     .testTarget(name: "StreamDeckAppTests", dependencies: ["StreamDeckApp", "DeckConfig", "DeckEngine"]),
+])
+#endif
+
+#if os(Linux)
+// Linux only: hidraw and uinput platform code, and the headless daemon.
+package.products.append(.executable(name: "streamdeckd", targets: ["streamdeckd"]))
+package.targets.append(contentsOf: [
+    .target(name: "CLinux"),
+    .target(name: "DeckPlatformLinux", dependencies: ["CLinux", "DeckSupport", "DeckHID", "DeckConfig", "DeckEngine"]),
+    .executableTarget(name: "streamdeckd", dependencies: ["DeckPlatformLinux", "DeckEngine", "DeckHID", "DeckConfig", "DeckRender"]),
+    .testTarget(name: "DeckPlatformLinuxTests", dependencies: ["DeckPlatformLinux", "CLinux", "DeckEngine", "DeckHID", "DeckConfig", "DeckSupport"],
+                resources: [.copy("Fixtures")]),
 ])
 #endif
