@@ -37,7 +37,8 @@ Issue #5 has no checklist items, so nothing here duplicates it.
 ## 6. Integration
 
 - [x] 6.1 Run the whole suite on Linux; verify `./scripts/test-linux.sh` (`swift test`) passes with no warnings from the portable targets in Swift 6 language mode
-- [ ] 6.2 On a Mac: `./scripts/bundle.sh`, the full `swift test`, then a smoke test of the installed app (deck connects, a `keys:` key sends its combination, an `open:` key opens its target, saving `config.yaml` reloads the deck, with Elgato's app running the menu shows the "Quit the Elgato app" message); verify all pass and record the result in the PR
+- [x] 6.2 On a Mac: `./scripts/bundle.sh` and the full `swift test`; verify both pass and record the result in the PR
+- [ ] 6.3 On a Mac: smoke test of the installed app (deck connects, a `keys:` key sends its combination, an `open:` key opens its target, saving `config.yaml` reloads the deck, with Elgato's app running the menu shows the "Quit the Elgato app" message); verify all pass and record the result in the PR
 
 ## Workflow follow-up
 
