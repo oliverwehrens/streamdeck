@@ -40,6 +40,23 @@ public final class DeckEngine {
     /// Called when the status key is pressed. Only with `showsProblemsOnDeck`.
     public var onStatusKeyPress: (() -> Void)?
 
+    /// While set, every key shows this instead of the page (missing keys are blank), and key-downs call
+    /// `onOverlayKeyPress` instead of running actions. Used for prompts such as the pairing code.
+    public var overlay: [Int: KeyAppearance]? {
+        didSet {
+            guard overlay != oldValue else { return }
+            pressed.removeAll()
+            renderAll()
+        }
+    }
+
+    public var onOverlayKeyPress: ((Int) -> Void)?
+
+    /// The last image rendered for each key, whether or not a device is connected (JPEG, rotated for the device).
+    public private(set) var keyImages: [Int: Data] = [:]
+    /// Called when a key's rendered image changes.
+    public var onKeyImage: ((Int, Data) -> Void)?
+
     /// The key that shows problems no visible key can show.
     public nonisolated static let statusKey = 14
 
@@ -167,6 +184,12 @@ public final class DeckEngine {
         notify()
     }
 
+    /// A problem with the web editor, such as a port that is in use.
+    public func setWebProblem(_ message: String?) {
+        problems[.web] = message
+        notify()
+    }
+
     // MARK: - Device events
 
     func handle(_ event: DeviceEvent) {
@@ -194,6 +217,10 @@ public final class DeckEngine {
     }
 
     private func handleKey(_ event: KeyEvent) {
+        if overlay != nil {
+            if event.edge == .down { onOverlayKeyPress?(event.key) }
+            return
+        }
         if let onEditorKeyPress {
             if event.edge == .down { onEditorKeyPress(event.key) }
             return
@@ -280,6 +307,12 @@ public final class DeckEngine {
     }
 
     private func render(key: Int, notifyAfter: Bool = true) {
+        if let overlay {
+            if key == Self.statusKey { shownStatusKeyLabel = statusKeyLabel }
+            send(renderer.render(overlay[key] ?? .blank), to: key)
+            if notifyAfter { notify() }
+            return
+        }
         if key == Self.statusKey {
             shownStatusKeyLabel = statusKeyLabel
             if let label = shownStatusKeyLabel {
@@ -311,6 +344,10 @@ public final class DeckEngine {
     }
 
     private func send(_ rendered: RenderedKey, to key: Int) {
+        if keyImages[key] != rendered.jpeg {
+            keyImages[key] = rendered.jpeg
+            onKeyImage?(key, rendered.jpeg)
+        }
         if connected, lastSent[key] != rendered.jpeg {
             transport.setImage(key: key, jpeg: rendered.jpeg)
             lastSent[key] = rendered.jpeg
@@ -332,13 +369,18 @@ public final class DeckEngine {
         guard showsProblemsOnDeck else { return nil }
         let global = problems.keys.filter {
             switch $0 {
-            case .config, .permission: true
+            case .config, .permission, .web: true
             case .device, .icon, .action, .dynamic: false
             }
         }
         switch global.count {
         case 0: return nil
-        case 1: return global[0] == .config ? "Config" : "Keys"
+        case 1:
+            switch global[0] {
+            case .config: return "Config"
+            case .web: return "Web"
+            default: return "Keys"
+            }
         default: return "\(global.count) problems"
         }
     }

@@ -54,6 +54,8 @@ public struct Problem: Equatable, Sendable, CustomStringConvertible {
         case config
         case device
         case permission
+        /// The web editor cannot run, e.g. its port is in use.
+        case web
         case icon(key: Int)
         case action(page: String, key: Int)
         case dynamic(key: Int)

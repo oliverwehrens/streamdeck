@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Stream Deck</title>
+<link rel="stylesheet" href="/assets/app.css">
+<script type="module" src="/assets/app.js"></script>
+</head>
+<body>
+<p id="loading" class="center-note">Loading…</p>
+
+<section id="pairing" class="pairing" hidden>
+  <h1>Stream Deck</h1>
+  <p>This browser isn't paired with the deck yet. Pairing needs the deck in front of you: it shows a code on its keys.</p>
+  <label>Name for this browser <input id="pair-name" maxlength="60" autocomplete="off"></label>
+  <button id="pair-start" class="primary">Show a code on the deck</button>
+  <div id="pair-entry" hidden>
+    <label>Code shown on the deck <input id="pair-code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="482193"></label>
+    <button id="pair-submit" class="primary">Pair</button>
+    <p class="hint">The code is valid for 2 minutes. Press Cancel on the deck to stop.</p>
+  </div>
+  <p id="pair-message" class="error" role="alert"></p>
+</section>
+
+<div id="editor" hidden>
+  <header class="topbar">
+    <h1>Stream Deck</h1>
+    <span id="dirty" class="dirty" hidden>Unsaved changes</span>
+    <span class="spacer"></span>
+    <button id="revert">Revert</button>
+    <button id="save" class="primary">Save</button>
+  </header>
+  <div id="banners"></div>
+  <main class="layout">
+    <nav class="sidebar">
+      <h2>Pages</h2>
+      <ul id="page-list" class="page-list"></ul>
+      <select id="page-select" class="page-select" aria-label="Page"></select>
+      <div class="row">
+        <button id="add-page">Add page</button>
+        <button id="settings-button">Settings</button>
+      </div>
+    </nav>
+    <section class="center">
+      <div id="page-header" class="page-header"></div>
+      <div id="holder-note" class="note" hidden></div>
+      <div id="grid" class="grid" role="grid" aria-label="Keys"></div>
+      <section class="problems">
+        <h2>Deck</h2>
+        <p id="device"></p>
+        <ul id="problems"></ul>
+      </section>
+    </section>
+    <section id="inspector" class="inspector"></section>
+  </main>
+</div>
+
+<dialog id="dialog"></dialog>
+<dialog id="picker" class="picker"></dialog>
+</body>
+</html>

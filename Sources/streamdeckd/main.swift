@@ -1,7 +1,9 @@
 import DeckConfig
+import DeckEditor
 import DeckEngine
 import DeckPlatformLinux
 import DeckRender
+import DeckWeb
 import Foundation
 
 // Headless Stream Deck daemon for Linux. Logs go to stderr, which systemd sends to the journal.
@@ -9,6 +11,16 @@ import Foundation
 /// One unbuffered write per line, so lines never interleave or wait in a buffer.
 func log(_ line: String) {
     FileHandle.standardError.write(Data("\(line)\n".utf8))
+}
+
+let options: WebOptions
+switch WebOptions.parse(Array(CommandLine.arguments.dropFirst())) {
+case let .success(parsed):
+    options = parsed
+case let .failure(error):
+    log("streamdeckd: \(error)")
+    log(WebOptions.usage)
+    exit(2)
 }
 
 let configURL = ConfigFile.defaultURL
@@ -35,9 +47,11 @@ let engine = DeckEngine(
 )
 
 var lastStatus = DeckEngine.Status()
+var web: WebEditor?
 engine.onStatusChange = { status in
     StatusLog.lines(from: lastStatus, to: status).forEach(log)
     lastStatus = status
+    web?.statusChanged(status)
 }
 engine.onStatusKeyPress = {
     StatusLog.allProblems(engine.status).forEach(log)
@@ -53,14 +67,33 @@ do {
     engine.configFailed([ConfigError("cannot create \(configURL.path): \(error.localizedDescription)")])
 }
 
+/// The config file's latest result, applied to the deck unless the web editor holds it.
+var latestUpdate: ConfigWatcher.Update?
+
+@MainActor func showSavedConfig() {
+    switch latestUpdate {
+    case let .loaded(config): engine.configLoaded(config)
+    case let .failed(errors): engine.configFailed(errors)
+    case nil: break
+    }
+}
+
+if options.enabled {
+    let editor = ConfigEditor(configURL: configURL)
+    editor.loadFromDisk()
+    let scheduler = MainQueueScheduler()
+    web = WebEditor(editor: editor, engine: engine, tokens: TokenStore(scheduler: scheduler), scheduler: scheduler,
+                    log: log, showSavedConfig: showSavedConfig)
+}
+
 // DispatchQueue.main keeps updates in order; the main queue is the main actor's executor.
+// While a browser edits, file changes go to the editor and the deck keeps showing the draft.
 let watcher = ConfigWatcher(url: configURL) { update in
     DispatchQueue.main.async {
         MainActor.assumeIsolated {
-            switch update {
-            case let .loaded(config): engine.configLoaded(config)
-            case let .failed(errors): engine.configFailed(errors)
-            }
+            latestUpdate = update
+            web?.fileChanged()
+            if web?.holdsDeck != true { showSavedConfig() }
         }
     }
 }
@@ -76,6 +109,24 @@ resume.start {
     }
 }
 
+var serverTask: Task<Void, Never>?
+if let web {
+    serverTask = Task {
+        do {
+            try await WebServer.run(web: web, host: options.host, port: options.port) { _ in
+                DispatchQueue.main.async {
+                    for url in options.urls() { log("web editor at \(url)") }
+                }
+            }
+        } catch is CancellationError {
+        } catch {
+            let message = "Web editor: cannot listen on \(options.host):\(options.port): \(error)"
+            log(message)
+            engine.setWebProblem(message)
+        }
+    }
+}
+
 var signalSources: [DispatchSourceSignal] = []
 for signalNumber in [SIGTERM, SIGINT] {
     signal(signalNumber, SIG_IGN)
@@ -83,6 +134,8 @@ for signalNumber in [SIGTERM, SIGINT] {
     source.setEventHandler {
         MainActor.assumeIsolated {
             log("stopping")
+            web?.hub.closeAll()
+            serverTask?.cancel()
             watcher.stop()
             engine.shutdown()
             exit(0)
