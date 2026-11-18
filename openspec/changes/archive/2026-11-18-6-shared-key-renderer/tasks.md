@@ -36,8 +36,8 @@ Issue #6 has no checklist items, so nothing here duplicates it.
 ## 6. Integration
 
 - [x] 6.1 Run the whole suite on Linux; verify `./scripts/test-linux.sh` passes with no warnings from `DeckRender` or `CStb` in Swift 6 language mode
-- [ ] 6.2 On a Mac: `./scripts/bundle.sh` and the full `swift test`; verify both pass and record the result and the app binary size before and after in the PR
-- [ ] 6.3 On a Mac: smoke test of the installed app with a config that mixes `sf:`, `ms:`, `ms:….fill`, a file icon, a full-key image with a label, a long label and a dynamic key; verify the deck and the editor grid match, a screenshot of the editor before and after is attached to the PR, and the editor's Material Symbol field behaves as specified
+- [x] 6.2 On a Mac: `./scripts/bundle.sh` and the full `swift test`; verify both pass and record the result and the app binary size before and after in the PR
+- [x] 6.3 On a Mac: smoke test of the installed app with a config that mixes `sf:`, `ms:`, `ms:….fill`, a file icon, a full-key image with a label, a long label and a dynamic key; verify the deck and the editor grid match, a screenshot of the editor before and after is attached to the PR, and the editor's Material Symbol field behaves as specified
 
 ## Workflow follow-up
 
